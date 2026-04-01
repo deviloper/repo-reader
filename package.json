@@ -1,12 +1,15 @@
 {
   "name": "repo-reader",
   "version": "1.0.0-alpha1",
-  "description": "Strumento JS per la lettura dei file di documentazione presenti in un repository git",
+  "description": "Desktop app Electron per navigare repository, leggere documentazione e modificare file testuali",
   "keywords": [
+    "electron",
     "markdown",
     "node",
     "documentation",
-    "reader"
+    "reader",
+    "repository",
+    "docs"
   ],
   "homepage": "https://github.com/deviloper/repo-reader#readme",
   "bugs": {
@@ -19,8 +22,24 @@
   "license": "ISC",
   "author": "Francesco Colella",
   "type": "commonjs",
-  "main": "index.js",
+  "main": "src/main.js",
+  "bin": {
+    "repo-reader": "./src/cli.js"
+  },
+  "files": [
+    "src/**/*",
+    "README.md",
+    "package.json"
+  ],
   "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "electron": "^35.1.4"
   }
 }

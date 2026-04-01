@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self';">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repo Reader</title>
+    <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+    <div class="background-orb orb-one"></div>
+    <div class="background-orb orb-two"></div>
+
+    <div class="app-shell">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">Repo Reader</p>
+                <h1>Navigazione repository e documentazione</h1>
+                <p id="root-path" class="subtle"></p>
+            </div>
+
+            <div class="toolbar">
+                <button data-action="up">Su</button>
+                <button data-action="refresh">Aggiorna</button>
+                <button data-action="open-folder">Apri cartella</button>
+                <button data-action="open-code">Apri in VS Code</button>
+            </div>
+        </header>
+
+        <main class="workspace">
+            <aside class="sidebar panel">
+                <div class="panel-head">
+                    <span>Struttura</span>
+                    <span id="entry-count" class="badge"></span>
+                </div>
+                <div id="breadcrumbs" class="breadcrumbs"></div>
+                <div id="file-list" class="file-list"></div>
+            </aside>
+
+            <section class="content">
+                <article class="panel preview-panel">
+                    <div class="panel-head">
+                        <div>
+                            <span>Anteprima</span>
+                            <p id="selected-file" class="subtle"></p>
+                        </div>
+                        <span id="selected-type" class="badge"></span>
+                    </div>
+                    <div id="preview" class="preview"></div>
+                </article>
+
+                <article class="panel editor-panel">
+                    <div class="panel-head">
+                        <div>
+                            <span>Editor guidato</span>
+                            <p class="subtle">Modifica file Markdown e testo con salvataggio diretto.</p>
+                        </div>
+                        <div class="toolbar compact">
+                            <button id="save-file" disabled>Salva</button>
+                        </div>
+                    </div>
+                    <textarea id="editor" spellcheck="false" placeholder="Seleziona un file modificabile..."></textarea>
+                    <div class="status-row">
+                        <span id="status">Pronto.</span>
+                    </div>
+                </article>
+            </section>
+        </main>
+    </div>
+
+    <script src="./renderer.js"></script>
+</body>
+</html>

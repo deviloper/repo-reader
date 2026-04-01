@@ -95,3 +95,20 @@ Se l’obiettivo è farlo installare come `devDependency`, conviene prevedere:
 ## Nota sul materiale esistente
 
 I file che hai mostrato sono già sufficienti per definire il comportamento di partenza, ma non ancora per il prodotto finale. La priorità dovrebbe essere trasformare il server monolitico attuale in moduli separati: boot, filesystem, rendering, UI e comandi. Questo rende più semplice introdurre Electron e Monaco senza riscrivere tutto in un solo passaggio.
+
+## Avvio rapido
+
+1. Installare le dipendenze del progetto con `npm install`.
+2. Avviare l'app con `npm run start`.
+3. In alternativa, dopo la pubblicazione del pacchetto, usare il comando esposto da `bin` come `repo-reader --root <percorso-repository>`.
+
+## Stato dell’implementazione
+
+La base iniziale ora include:
+
+1. un comando CLI che avvia Electron puntando al repository selezionato;
+2. una finestra desktop dedicata;
+3. navigazione delle cartelle del repository;
+4. anteprima Markdown integrata;
+5. un editor testuale semplice con salvataggio diretto;
+6. apertura della cartella nel file manager e in VS Code quando disponibile.
