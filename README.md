@@ -1,4 +1,4 @@
-# repo-reader
+# Repo Reader
 
 repo-reader è un applicativo pensato per esplorare un repository locale, leggere la documentazione presente nelle cartelle `docs` e offrire un punto di ingresso unico per navigazione, anteprima Markdown e, in una fase successiva, editing guidato dei contenuti.
 
