@@ -1,0 +1,26 @@
+{
+  "name": "repo-reader",
+  "version": "1.0.0-alpha1",
+  "description": "Strumento JS per la lettura dei file di documentazione presenti in un repository git",
+  "keywords": [
+    "markdown",
+    "node",
+    "documentation",
+    "reader"
+  ],
+  "homepage": "https://github.com/deviloper/repo-reader#readme",
+  "bugs": {
+    "url": "https://github.com/deviloper/repo-reader/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deviloper/repo-reader.git"
+  },
+  "license": "ISC",
+  "author": "Francesco Colella",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
