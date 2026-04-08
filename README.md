@@ -4,14 +4,16 @@ repo-reader è un applicativo pensato per esplorare un repository locale, legger
 
 L’idea di partenza nasce dal mini applicativo già esistente nel repository sorgente che mi hai mostrato: un server Node.js avvia una finestra del browser, permette di navigare le cartelle, aprire file Markdown e gestire alcune azioni base sul repository. Questo progetto vuole evolvere quella base in un prodotto impacchettabile via npm, più completo e più semplice da integrare in altri progetti.
 
+L’interfaccia nuova parte sempre in modalità visualizzazione. Quando serve modificare un file si passa alla modalità modifica con un toggle dedicato, così l’intera area di lavoro cambia contesto senza tenere preview ed editor divisi inutilmente.
+
 ## Obiettivo
 
 L’obiettivo è distribuire repo-reader come strumento installabile nelle `devDependencies` di un progetto e avviabile con un comando breve da terminale. In prospettiva, il tool dovrà fornire:
 
 1. una finestra desktop dedicata, senza dipendere da un server Node avviato manualmente;
-2. una navigazione del repository e della documentazione in stile file explorer;
+2. una navigazione del repository e della documentazione in stile file explorer, con filtro rapido e apertura di file collegati dai Markdown;
 3. un visualizzatore Markdown integrato;
-4. funzionalità di editing assistito per file testuali e documentazione;
+4. funzionalità di editing assistito per file testuali e documentazione tramite Monaco Editor;
 5. una base estendibile per comandi futuri legati alla gestione del repository.
 
 ## Stato attuale del materiale di partenza
@@ -108,7 +110,7 @@ La base iniziale ora include:
 
 1. un comando CLI che avvia Electron puntando al repository selezionato;
 2. una finestra desktop dedicata;
-3. navigazione delle cartelle del repository;
+3. navigazione delle cartelle del repository con filtro e breadcrumb;
 4. anteprima Markdown integrata;
-5. un editor testuale semplice con salvataggio diretto;
+5. un editor Monaco attivato solo in modalità modifica, con salvataggio diretto;
 6. apertura della cartella nel file manager e in VS Code quando disponibile.

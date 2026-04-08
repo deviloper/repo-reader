@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-eval'; worker-src 'self' blob: data:; font-src 'self' data:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Repo Reader</title>
     <link rel="stylesheet" href="./styles.css">
@@ -20,10 +20,16 @@
             </div>
 
             <div class="toolbar">
-                <button data-action="up">Su</button>
-                <button data-action="refresh">Aggiorna</button>
-                <button data-action="open-folder">Apri cartella</button>
-                <button data-action="open-code">Apri in VS Code</button>
+                <div class="mode-toggle" role="group" aria-label="Modalità di lavoro">
+                    <button type="button" data-mode="view" class="mode-button is-active">Visualizza</button>
+                    <button type="button" data-mode="edit" class="mode-button">Modifica</button>
+                </div>
+                <div class="toolbar-actions">
+                    <button type="button" data-action="up">Su</button>
+                    <button type="button" data-action="refresh">Aggiorna</button>
+                    <button type="button" data-action="open-folder">Apri cartella</button>
+                    <button type="button" data-action="open-code">Apri in VS Code</button>
+                </div>
             </div>
         </header>
 
@@ -32,6 +38,10 @@
                 <div class="panel-head">
                     <span>Struttura</span>
                     <span id="entry-count" class="badge"></span>
+                </div>
+                <div class="sidebar-tools">
+                    <input id="search-input" type="search" placeholder="Filtra cartella o file...">
+                    <button type="button" id="clear-filter">Pulisci</button>
                 </div>
                 <div id="breadcrumbs" class="breadcrumbs"></div>
                 <div id="file-list" class="file-list"></div>
@@ -53,13 +63,16 @@
                     <div class="panel-head">
                         <div>
                             <span>Editor guidato</span>
-                            <p class="subtle">Modifica file Markdown e testo con salvataggio diretto.</p>
+                            <p class="subtle">La modifica si apre solo nella modalità dedicata, per usare tutta la finestra.</p>
                         </div>
                         <div class="toolbar compact">
-                            <button id="save-file" disabled>Salva</button>
+                            <button type="button" id="save-file" disabled>Salva</button>
                         </div>
                     </div>
-                    <textarea id="editor" spellcheck="false" placeholder="Seleziona un file modificabile..."></textarea>
+                    <div class="editor-stage">
+                        <div id="editor-host" class="editor-host" hidden></div>
+                        <textarea id="editor" class="editor-fallback" spellcheck="false" placeholder="Seleziona un file modificabile..."></textarea>
+                    </div>
                     <div class="status-row">
                         <span id="status">Pronto.</span>
                     </div>
@@ -68,6 +81,7 @@
         </main>
     </div>
 
+    <script src="../../node_modules/monaco-editor/min/vs/loader.js"></script>
     <script src="./renderer.js"></script>
 </body>
 </html>

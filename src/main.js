@@ -23,15 +23,93 @@ function resolveWithinRoot(relativePath = "") {
 }
 
 function isVisibleEntry(entry) {
+    const lowerName = entry.name.toLowerCase();
+    const extension = path.extname(entry.name).toLowerCase();
+    const visibleDotFiles = new Set([
+        ".gitignore",
+        ".gitattributes",
+        ".editorconfig",
+        ".npmrc",
+        ".nvmrc",
+        ".prettierrc",
+        ".prettierignore",
+        ".eslintrc",
+        ".eslintignore",
+        ".stylelintrc",
+        ".dockerignore",
+        ".lintstagedrc",
+        ".commitlintrc",
+    ]);
+    const visiblePlainNames = new Set([
+        "readme",
+        "license",
+        "changelog",
+        "contributing",
+        "code_of_conduct",
+        "security",
+        "codeowners",
+        "makefile",
+        "gnumakefile",
+        "procfile",
+        "jenkinsfile",
+        "gemfile",
+        "rakefile",
+    ]);
+
     if (entry.name.startsWith(".")) {
-        return false;
+        if (entry.isDirectory()) {
+            return false;
+        }
+
+        if (lowerName.startsWith(".env")) {
+            return true;
+        }
+
+        if (visibleDotFiles.has(lowerName)) {
+            return true;
+        }
+    }
+
+    if (lowerName.startsWith("dockerfile")) {
+        return true;
+    }
+
+    if (!extension && visiblePlainNames.has(lowerName)) {
+        return true;
     }
 
     if (entry.isDirectory()) {
         return true;
     }
 
-    return [".md", ".mdx", ".txt", ".json"].includes(path.extname(entry.name).toLowerCase());
+    return [
+        ".md",
+        ".mdx",
+        ".txt",
+        ".json",
+        ".js",
+        ".jsx",
+        ".ts",
+        ".tsx",
+        ".css",
+        ".html",
+        ".yml",
+        ".yaml",
+        ".xml",
+        ".ini",
+        ".toml",
+        ".csv",
+        ".env",
+        ".example",
+        ".lock",
+        ".log",
+        ".conf",
+        ".properties",
+        ".sh",
+        ".bat",
+        ".cmd",
+        ".ps1",
+    ].includes(extension);
 }
 
 function listDirectory(relativePath = "") {
@@ -143,7 +221,7 @@ async function openWithCode(absolutePath) {
 }
 
 function openExternalUrl(url) {
-    if (!/^https?:\/\//i.test(url)) {
+    if (!/^(https?:|mailto:|tel:|file:)/i.test(url)) {
         throw new Error("URL non valido");
     }
 

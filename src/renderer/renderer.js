@@ -1,12 +1,106 @@
+const TEXT_FILE_EXTENSIONS = new Set([
+    ".md",
+    ".mdx",
+    ".txt",
+    ".json",
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+    ".css",
+    ".html",
+    ".htm",
+    ".yml",
+    ".yaml",
+    ".xml",
+    ".ini",
+    ".toml",
+    ".csv",
+    ".env",
+    ".sh",
+    ".bat",
+    ".cmd",
+    ".ps1",
+    ".log",
+    ".conf",
+    ".properties",
+    ".gitignore",
+    ".gitattributes",
+    ".editorconfig",
+    ".npmrc",
+    ".nvmrc",
+    ".prettierrc",
+    ".eslintrc",
+    ".stylelintrc",
+    ".example",
+    ".lock",
+]);
+
+const TEXT_FILE_NAMES = new Set([
+    "readme",
+    "license",
+    "changelog",
+    "contributing",
+    "code_of_conduct",
+    "security",
+    "codeowners",
+    "makefile",
+    "gnumakefile",
+    "procfile",
+    "jenkinsfile",
+    "gemfile",
+    "rakefile",
+]);
+
+const TEXT_FILE_PREFIXES = [".env"];
+
+const MARKDOWN_EXTENSIONS = new Set([".md", ".mdx"]);
+
+const MONACO_LANGUAGE_BY_EXTENSION = new Map([
+    [".md", "markdown"],
+    [".mdx", "markdown"],
+    [".json", "json"],
+    [".js", "javascript"],
+    [".jsx", "javascript"],
+    [".ts", "typescript"],
+    [".tsx", "typescript"],
+    [".css", "css"],
+    [".html", "html"],
+    [".htm", "html"],
+    [".yml", "yaml"],
+    [".yaml", "yaml"],
+    [".xml", "xml"],
+    [".ini", "ini"],
+    [".toml", "ini"],
+    [".csv", "plaintext"],
+    [".env", "ini"],
+    [".sh", "shell"],
+    [".bat", "bat"],
+    [".cmd", "bat"],
+    [".ps1", "powershell"],
+]);
+
 const state = {
     root: "",
     currentPath: "",
     currentItems: [],
+    filteredItems: [],
+    filterQuery: "",
     selectedPath: "",
     selectedType: "",
+    selectedExtension: "",
     selectedContent: "",
+    draftContent: "",
     editable: false,
     dirty: false,
+    mode: "view",
+    editorKind: "fallback",
+    monaco: null,
+    monacoLoadPromise: null,
+    editor: null,
+    editorCreatePromise: null,
+    themeDefined: false,
+    suppressEditorEvent: false,
 };
 
 const elements = {
@@ -17,7 +111,12 @@ const elements = {
     preview: document.getElementById("preview"),
     selectedFile: document.getElementById("selected-file"),
     selectedType: document.getElementById("selected-type"),
-    editor: document.getElementById("editor"),
+    searchInput: document.getElementById("search-input"),
+    clearFilter: document.getElementById("clear-filter"),
+    modeView: document.querySelector('[data-mode="view"]'),
+    modeEdit: document.querySelector('[data-mode="edit"]'),
+    editorHost: document.getElementById("editor-host"),
+    editorFallback: document.getElementById("editor"),
     status: document.getElementById("status"),
     saveFile: document.getElementById("save-file"),
 };
@@ -31,8 +130,127 @@ function escapeHtml(text) {
         .replace(/'/g, "&#39;");
 }
 
+function normalizePath(value) {
+    return String(value || "").replace(/\\/g, "/");
+}
+
+function splitPath(value) {
+    return normalizePath(value).split("/").filter(Boolean);
+}
+
+function getParentPath(value) {
+    const fragments = splitPath(value);
+    fragments.pop();
+    return fragments.join("/");
+}
+
+function getExtension(value) {
+    const normalized = normalizePath(value);
+    const baseName = normalized.split("/").pop() || "";
+    const index = baseName.lastIndexOf(".");
+
+    if (index > 0) {
+        return baseName.slice(index).toLowerCase();
+    }
+
+    if (baseName.startsWith(".")) {
+        return baseName.toLowerCase();
+    }
+
+    return "";
+}
+
+function getBaseName(value) {
+    return normalizePath(value).split("/").pop() || "";
+}
+
 function isExternalUrl(href) {
-    return /^(https?:|mailto:|tel:)/i.test(href);
+    return /^(https?:|mailto:|tel:|file:)/i.test(href);
+}
+
+function stripQueryAndFragment(href) {
+    return String(href || "").trim().replace(/[?#].*$/, "");
+}
+
+function isEditableFilePath(filePath) {
+    const extension = getExtension(filePath);
+    const baseName = getBaseName(filePath).toLowerCase();
+
+    return TEXT_FILE_EXTENSIONS.has(extension)
+        || TEXT_FILE_NAMES.has(baseName)
+    || TEXT_FILE_PREFIXES.some(prefix => baseName.startsWith(prefix))
+    || baseName.startsWith("dockerfile");
+}
+
+function getFileTypeLabel(filePath, type) {
+    if (type === "dir") {
+        return "Cartella";
+    }
+
+    const extension = getExtension(filePath);
+
+    if (MARKDOWN_EXTENSIONS.has(extension)) {
+        return "Markdown";
+    }
+
+    if (extension === ".json") {
+        return "JSON";
+    }
+
+    if (TEXT_FILE_EXTENSIONS.has(extension)) {
+        return "Testo";
+    }
+
+    const baseName = getBaseName(filePath).toLowerCase();
+    if (TEXT_FILE_NAMES.has(baseName) || TEXT_FILE_PREFIXES.some(prefix => baseName.startsWith(prefix)) || baseName.startsWith("dockerfile")) {
+        return "Testo";
+    }
+
+    return extension ? extension.slice(1).toUpperCase() : "File";
+}
+
+function getPreviewContent() {
+    return state.dirty ? state.draftContent : state.selectedContent;
+}
+
+function guessMonacoLanguage(filePath) {
+    return MONACO_LANGUAGE_BY_EXTENSION.get(getExtension(filePath)) || "plaintext";
+}
+
+function resolveRelativeTarget(basePath, href) {
+    const cleanedHref = stripQueryAndFragment(href);
+
+    if (!cleanedHref) {
+        return normalizePath(basePath);
+    }
+
+    if (isExternalUrl(cleanedHref)) {
+        return cleanedHref;
+    }
+
+    const normalizedHref = normalizePath(cleanedHref);
+    const targetFragments = normalizedHref.startsWith("/")
+        ? []
+        : splitPath(basePath);
+
+    if (!normalizedHref.startsWith("/")) {
+        targetFragments.pop();
+    }
+
+    for (const fragment of normalizedHref.replace(/^\//, "").split("/")) {
+        if (!fragment || fragment === ".") {
+            continue;
+        }
+
+        if (fragment === "..") {
+            targetFragments.pop();
+            continue;
+        }
+
+        targetFragments.push(fragment);
+    }
+
+    return targetFragments.join("/");
 }
 
 function renderInline(text) {
@@ -147,6 +365,7 @@ function renderMarkdown(markdown) {
             if (listType && listType !== "ul") {
                 flushList();
             }
+
             listType = "ul";
             listItems.push(unorderedList[1]);
             continue;
@@ -158,6 +377,7 @@ function renderMarkdown(markdown) {
             if (listType && listType !== "ol") {
                 flushList();
             }
+
             listType = "ol";
             listItems.push(orderedList[1]);
             continue;
@@ -185,21 +405,81 @@ function renderMarkdown(markdown) {
     return blocks.length ? blocks.join("\n") : '<p class="empty-markdown">Nessun contenuto.</p>';
 }
 
+function renderPlainPreview(content) {
+    return `<pre class="code-block md-block"><code>${escapeHtml(content || "")}</code></pre>`;
+}
+
+function renderJsonPreview(content) {
+    try {
+        return renderPlainPreview(JSON.stringify(JSON.parse(content), null, 2));
+    } catch {
+        return renderPlainPreview(content);
+    }
+}
+
+function renderFilePreview(content, filePath) {
+    const extension = getExtension(filePath);
+
+    if (MARKDOWN_EXTENSIONS.has(extension)) {
+        return renderMarkdown(content);
+    }
+
+    if (extension === ".json") {
+        return renderJsonPreview(content);
+    }
+
+    return renderPlainPreview(content);
+}
+
 function setStatus(message, tone = "") {
     elements.status.textContent = message;
-    elements.status.dataset.tone = tone;
+
+    if (tone) {
+        elements.status.dataset.tone = tone;
+        return;
+    }
+
+    delete elements.status.dataset.tone;
 }
 
-function normalizePath(relativePath) {
-    return String(relativePath || "").replace(/\\/g, "/");
+function updateModeButtons() {
+    const isViewMode = state.mode === "view";
+
+    elements.modeView.classList.toggle("is-active", isViewMode);
+    elements.modeEdit.classList.toggle("is-active", !isViewMode);
+    elements.modeView.setAttribute("aria-pressed", String(isViewMode));
+    elements.modeEdit.setAttribute("aria-pressed", String(!isViewMode));
+    document.body.dataset.mode = state.mode;
 }
 
-function splitPath(relativePath) {
-    return normalizePath(relativePath).split("/").filter(Boolean);
+function updateEntryCount() {
+    const visibleCount = state.filteredItems.length;
+    const totalCount = state.currentItems.length;
+
+    if (visibleCount === totalCount) {
+        elements.entryCount.textContent = `${visibleCount} elementi`;
+        return;
+    }
+
+    elements.entryCount.textContent = `${visibleCount}/${totalCount} elementi`;
 }
 
-function buildBreadcrumbs(currentPath) {
-    const fragments = splitPath(currentPath);
+function updateSelectionHeader() {
+    if (!state.selectedPath) {
+        elements.selectedFile.textContent = "Nessun file selezionato";
+        elements.selectedType.textContent = "";
+        return;
+    }
+
+    elements.selectedFile.textContent = state.selectedPath;
+    elements.selectedType.textContent = getFileTypeLabel(state.selectedPath, state.selectedType);
+}
+
+function updateSaveButtonState() {
+    elements.saveFile.disabled = !(state.editable && state.dirty);
+}
+
+function renderBreadcrumbs() {
     const container = document.createDocumentFragment();
 
     const rootButton = document.createElement("button");
@@ -211,8 +491,9 @@ function buildBreadcrumbs(currentPath) {
 
     let prefix = "";
 
-    for (const fragment of fragments) {
+    for (const fragment of splitPath(state.currentPath)) {
         prefix = prefix ? `${prefix}/${fragment}` : fragment;
+
         const button = document.createElement("button");
         button.type = "button";
         button.textContent = fragment;
@@ -224,13 +505,32 @@ function buildBreadcrumbs(currentPath) {
     elements.breadcrumbs.replaceChildren(container);
 }
 
-function renderFileList(items) {
+function renderFileList() {
+    const normalizedFilter = state.filterQuery.trim().toLowerCase();
+    state.filteredItems = state.currentItems.filter(item => {
+        if (!normalizedFilter) {
+            return true;
+        }
+
+        return item.name.toLowerCase().includes(normalizedFilter);
+    });
+
+    updateEntryCount();
+
+    if (!state.filteredItems.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty-state sidebar-empty";
+        empty.textContent = state.filterQuery ? "Nessun risultato per il filtro corrente." : "Nessun file visibile in questa cartella.";
+        elements.fileList.replaceChildren(empty);
+        return;
+    }
+
     const fragment = document.createDocumentFragment();
 
-    for (const item of items) {
+    for (const item of state.filteredItems) {
         const button = document.createElement("button");
         button.type = "button";
-        button.className = `file-entry ${item.type}`;
+        button.className = `file-entry ${item.type}${item.path === state.selectedPath ? " active" : ""}`;
         button.dataset.path = item.path;
         button.dataset.type = item.type;
 
@@ -240,141 +540,507 @@ function renderFileList(items) {
 
         const meta = document.createElement("span");
         meta.className = "file-meta";
-        meta.textContent = item.type === "dir" ? "Cartella" : (item.isMarkdown ? "Markdown" : item.extension || "File");
+        meta.textContent = item.type === "dir" ? "Cartella" : getFileTypeLabel(item.path, item.type);
 
         button.append(name, meta);
         fragment.appendChild(button);
     }
 
     elements.fileList.replaceChildren(fragment);
-    elements.entryCount.textContent = `${items.length} elementi`;
 }
 
-function updateSelectionInfo(pathName, type) {
-    elements.selectedFile.textContent = pathName || "Nessun file selezionato";
-    elements.selectedType.textContent = type || "";
-}
-
-function setEditorContent(value, enabled) {
-    elements.editor.value = value || "";
-    elements.editor.disabled = !enabled;
-    elements.saveFile.disabled = !enabled;
-}
-
-async function loadDirectory(relativePath = "") {
-    const normalized = normalizePath(relativePath);
-    setStatus("Caricamento cartella...");
-
-    try {
-        const result = await window.repoReader.listDirectory(normalized);
-        state.currentPath = result.current || "";
-        state.currentItems = result.items || [];
-
-        buildBreadcrumbs(state.currentPath);
-        renderFileList(state.currentItems);
-        elements.rootPath.textContent = `${state.root}${state.currentPath ? ` / ${state.currentPath}` : ""}`;
-        setStatus("Cartella caricata.");
-
-        if (!state.currentItems.length) {
-            elements.preview.innerHTML = '<p class="empty-state">Nessun file visibile in questa cartella.</p>';
-        } else if (!state.selectedPath || splitPath(state.selectedPath).slice(0, -1).join("/") !== state.currentPath) {
-            clearSelection();
-        }
-    } catch (error) {
-        setStatus(error.message, "error");
-        elements.preview.innerHTML = `<p class="empty-state">${escapeHtml(error.message)}</p>`;
+function renderPreview() {
+    if (!state.selectedPath) {
+        elements.preview.innerHTML = '<p class="empty-state">Seleziona un file per aprire l’anteprima oppure passa alla modalità modifica.</p>';
+        return;
     }
+
+    if (state.selectedType === "dir") {
+        elements.preview.innerHTML = '<p class="empty-state">Cartella selezionata. Usa il pannello a sinistra per aprire una sottocartella o un file.</p>';
+        return;
+    }
+
+    elements.preview.innerHTML = renderFilePreview(getPreviewContent(), state.selectedPath);
+}
+
+function updateEditorSurfaceVisibility() {
+    if (state.editorKind === "monaco" && state.editor) {
+        elements.editorHost.hidden = false;
+        elements.editorFallback.hidden = true;
+        return;
+    }
+
+    elements.editorHost.hidden = true;
+    elements.editorFallback.hidden = false;
+}
+
+function syncEditorSurface() {
+    const content = getPreviewContent();
+    const language = guessMonacoLanguage(state.selectedPath);
+
+    updateEditorSurfaceVisibility();
+
+    if (state.editorKind === "monaco" && state.editor && state.monaco) {
+        state.suppressEditorEvent = true;
+
+        const model = state.editor.getModel();
+        if (model) {
+            state.monaco.editor.setModelLanguage(model, language);
+        }
+
+        state.editor.updateOptions({
+            readOnly: !state.editable,
+        });
+        state.editor.setValue(content || "");
+
+        state.suppressEditorEvent = false;
+        updateSaveButtonState();
+        return;
+    }
+
+    elements.editorFallback.readOnly = !state.editable;
+    elements.editorFallback.value = content || "";
+    updateSaveButtonState();
+}
+
+function setSelection(pathName, type, content, editable) {
+    state.selectedPath = normalizePath(pathName);
+    state.selectedType = type;
+    state.selectedExtension = getExtension(pathName);
+    state.selectedContent = content || "";
+    state.draftContent = content || "";
+    state.editable = Boolean(editable);
+    state.dirty = false;
+
+    updateSelectionHeader();
+    renderFileList();
+    renderPreview();
+    syncEditorSurface();
 }
 
 function clearSelection() {
     state.selectedPath = "";
     state.selectedType = "";
+    state.selectedExtension = "";
     state.selectedContent = "";
+    state.draftContent = "";
     state.editable = false;
     state.dirty = false;
-    updateSelectionInfo("Nessun file selezionato", "");
-    elements.preview.innerHTML = '<p class="empty-state">Seleziona una cartella o un file per vedere il contenuto.</p>';
-    setEditorContent("", false);
+
+    updateSelectionHeader();
+    renderFileList();
+    renderPreview();
+    syncEditorSurface();
 }
 
-async function openDirectory(relativePath) {
+async function openDirectory(relativePath = "") {
     await loadDirectory(relativePath);
 }
 
-async function openFile(relativePath, itemType = "file") {
-    const normalized = normalizePath(relativePath);
+async function openFile(relativePath) {
+    const normalizedPath = normalizePath(relativePath);
     setStatus("Caricamento file...");
 
     try {
-        const content = await window.repoReader.readFile(normalized);
-        state.selectedPath = normalized;
-        state.selectedType = itemType;
-        state.selectedContent = content;
-        state.editable = true;
+        const content = await window.repoReader.readFile(normalizedPath);
+        setSelection(normalizedPath, "file", content, isEditableFilePath(normalizedPath));
+
+        if (state.mode === "edit") {
+            await ensureMonacoEditor();
+            syncEditorSurface();
+        }
+
+        setStatus("File caricato.");
+    } catch (error) {
+        state.selectedPath = normalizedPath;
+        state.selectedType = "file";
+        state.selectedExtension = getExtension(normalizedPath);
+        state.selectedContent = "";
+        state.draftContent = "";
+        state.editable = false;
         state.dirty = false;
 
-        updateSelectionInfo(normalized, itemType === "dir" ? "Cartella" : "File modificabile");
-        elements.preview.innerHTML = renderMarkdown(content);
-        setEditorContent(content, true);
-        setStatus("File pronto per la modifica.");
-    } catch (error) {
-        state.selectedPath = normalized;
-        state.selectedType = itemType;
-        state.selectedContent = "";
-        state.editable = false;
-        updateSelectionInfo(normalized, itemType);
+        updateSelectionHeader();
+        renderFileList();
         elements.preview.innerHTML = `<p class="empty-state">${escapeHtml(error.message)}</p>`;
-        setEditorContent("", false);
+        syncEditorSurface();
         setStatus(error.message, "error");
     }
 }
 
-async function handleSave() {
+async function loadDirectory(relativePath = "") {
+    const normalizedPath = normalizePath(relativePath);
+    setStatus("Caricamento cartella...");
+
+    try {
+        const result = await window.repoReader.listDirectory(normalizedPath);
+        const previousSelection = state.selectedPath;
+        const shouldKeepSelection = previousSelection && getParentPath(previousSelection) === (result.current || "");
+
+        state.currentPath = result.current || "";
+        state.currentItems = result.items || [];
+
+        elements.rootPath.textContent = `${state.root}${state.currentPath ? ` / ${state.currentPath}` : ""}`;
+        renderBreadcrumbs();
+        renderFileList();
+
+        if (shouldKeepSelection && state.selectedType === "file" && !state.dirty) {
+            const content = await window.repoReader.readFile(previousSelection);
+            state.selectedContent = content;
+            state.draftContent = content;
+            renderPreview();
+            syncEditorSurface();
+        } else if (!shouldKeepSelection) {
+            clearSelection();
+        }
+
+        if (!state.selectedPath) {
+            renderPreview();
+        }
+
+        setStatus("Cartella caricata.");
+    } catch (error) {
+        setStatus(error.message, "error");
+        elements.preview.innerHTML = `<p class="empty-state">${escapeHtml(error.message)}</p>`;
+    }
+}
+
+function readEditorValue() {
+    if (state.editorKind === "monaco" && state.editor) {
+        return state.editor.getValue();
+    }
+
+    return elements.editorFallback.value;
+}
+
+async function loadMonaco() {
+    if (state.monaco) {
+        return state.monaco;
+    }
+
+    if (state.monacoLoadPromise) {
+        return state.monacoLoadPromise;
+    }
+
+    if (!window.require || typeof window.require.config !== "function") {
+        throw new Error("loader Monaco non disponibile");
+    }
+
+    state.monacoLoadPromise = new Promise((resolve, reject) => {
+        const monacoBaseUrl = new URL("../../node_modules/monaco-editor/min/vs", window.location.href)
+            .toString()
+            .replace(/\/$/, "");
+
+        window.require.config({
+            paths: {
+                vs: monacoBaseUrl,
+            },
+        });
+
+        window.MonacoEnvironment = {
+            getWorkerUrl() {
+                const workerSource = [
+                    `self.MonacoEnvironment = { baseUrl: ${JSON.stringify(monacoBaseUrl)} };`,
+                    `importScripts(${JSON.stringify(`${monacoBaseUrl}/base/worker/workerMain.js`)});`,
+                ].join("\n");
+
+                return `data:text/javascript;charset=utf-8,${encodeURIComponent(workerSource)}`;
+            },
+        };
+
+        window.require(["vs/editor/editor.main"], () => {
+            if (!window.monaco) {
+                reject(new Error("Monaco non inizializzato"));
+                return;
+            }
+
+            resolve(window.monaco);
+        }, error => {
+            reject(error instanceof Error ? error : new Error(String(error)));
+        });
+    }).then(monaco => {
+        state.monaco = monaco;
+        return monaco;
+    });
+
+    return state.monacoLoadPromise;
+}
+
+async function ensureMonacoEditor() {
+    if (state.editorKind === "monaco" && state.editor) {
+        return state.editor;
+    }
+
+    if (state.editorCreatePromise) {
+        return state.editorCreatePromise;
+    }
+
+    state.editorCreatePromise = (async () => {
+        try {
+            setStatus("Caricamento Monaco Editor...");
+
+            const monaco = await loadMonaco();
+            state.monaco = monaco;
+
+            if (!state.themeDefined) {
+                try {
+                    monaco.editor.defineTheme("repo-reader-dark", {
+                        base: "vs-dark",
+                        inherit: true,
+                        rules: [
+                            { token: "comment", foreground: "7c8aa8", fontStyle: "italic" },
+                            { token: "string", foreground: "b5e48c" },
+                            { token: "keyword", foreground: "7fb5ff" },
+                        ],
+                        colors: {
+                            "editor.background": "#050b16",
+                            "editor.foreground": "#eef4ff",
+                            "editorLineNumber.foreground": "#547096",
+                            "editorCursor.foreground": "#7fb5ff",
+                            "editor.selectionBackground": "#28497c",
+                            "editor.inactiveSelectionBackground": "#1d3355",
+                            "editorLineNumber.activeForeground": "#a5c2ee",
+                        },
+                    });
+                    state.themeDefined = true;
+                } catch {
+                    state.themeDefined = true;
+                }
+            }
+
+            state.editorKind = "monaco";
+            elements.editorHost.hidden = false;
+            elements.editorFallback.hidden = true;
+            elements.editorHost.replaceChildren();
+
+            state.editor = monaco.editor.create(elements.editorHost, {
+                value: getPreviewContent(),
+                language: guessMonacoLanguage(state.selectedPath),
+                theme: "repo-reader-dark",
+                automaticLayout: true,
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                wordWrap: "on",
+                fontSize: 14,
+                lineNumbers: "on",
+                tabSize: 2,
+                renderWhitespace: "selection",
+                readOnly: !state.editable,
+            });
+
+            state.editor.onDidChangeModelContent(() => {
+                if (state.suppressEditorEvent) {
+                    return;
+                }
+
+                state.draftContent = state.editor.getValue();
+                state.dirty = state.draftContent !== state.selectedContent;
+                updateSaveButtonState();
+                setStatus(state.dirty ? "Modifiche non salvate." : "Nessuna modifica in sospeso.");
+            });
+
+            syncEditorSurface();
+
+            if (state.mode === "edit") {
+                state.editor.layout();
+            }
+
+            return state.editor;
+        } catch (error) {
+            state.editorKind = "fallback";
+            elements.editorHost.hidden = true;
+            elements.editorFallback.hidden = false;
+            setStatus(`Monaco non disponibile: ${error.message}`, "error");
+            syncEditorSurface();
+            return null;
+        } finally {
+            state.editorCreatePromise = null;
+        }
+    })();
+
+    return state.editorCreatePromise;
+}
+
+async function setMode(nextMode) {
+    if (nextMode !== "view" && nextMode !== "edit") {
+        return;
+    }
+
+    state.mode = nextMode;
+    updateModeButtons();
+
+    if (nextMode === "edit") {
+        await ensureMonacoEditor();
+        syncEditorSurface();
+
+        if (state.editor && state.mode === "edit") {
+            state.editor.layout();
+        }
+
+        if (state.selectedPath) {
+            setStatus(state.dirty ? "Modifica attiva con modifiche non salvate." : "Modifica attiva.");
+        } else {
+            setStatus("Seleziona un file per iniziare a modificare.");
+        }
+
+        return;
+    }
+
+    renderPreview();
+    setStatus("Visualizzazione attiva.");
+}
+
+function filterItems(items, query) {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    if (!normalizedQuery) {
+        return items;
+    }
+
+    return items.filter(item => item.name.toLowerCase().includes(normalizedQuery));
+}
+
+function handlePreviewLinkClick(event) {
+    const target = event.target.closest("a.md-link");
+
+    if (!target) {
+        return;
+    }
+
+    event.preventDefault();
+
+    const href = target.getAttribute("href") || "";
+
+    if (isExternalUrl(href)) {
+        window.repoReader.openExternal(href).catch(error => setStatus(error.message, "error"));
+        return;
+    }
+
+    const resolvedTarget = resolveRelativeTarget(state.selectedPath || state.currentPath || "", href);
+
+    if (!resolvedTarget) {
+        return;
+    }
+
+    openResolvedTarget(resolvedTarget).catch(error => setStatus(error.message, "error"));
+}
+
+async function saveCurrentFile() {
     if (!state.editable || !state.selectedPath) {
         return;
     }
 
     try {
-        await window.repoReader.writeFile(state.selectedPath, elements.editor.value);
-        state.selectedContent = elements.editor.value;
+        const content = readEditorValue();
+        await window.repoReader.writeFile(state.selectedPath, content);
+
+        state.selectedContent = content;
+        state.draftContent = content;
         state.dirty = false;
-        elements.preview.innerHTML = renderMarkdown(state.selectedContent);
+
+        renderPreview();
+        syncEditorSurface();
         setStatus("File salvato correttamente.");
     } catch (error) {
         setStatus(error.message, "error");
     }
 }
 
-function handleSelection(pathName, type) {
-    if (type === "dir") {
-        openDirectory(pathName);
+async function openResolvedTarget(resolvedTarget) {
+    const extension = getExtension(resolvedTarget);
+
+    if (extension) {
+        await openFile(resolvedTarget);
         return;
     }
 
-    openFile(pathName, type);
+    try {
+        await window.repoReader.readFile(resolvedTarget);
+        await openFile(resolvedTarget);
+    } catch {
+        await openDirectory(resolvedTarget);
+    }
 }
 
-async function bootstrap() {
-    const bootstrapState = await window.repoReader.getBootstrapState();
-    state.root = bootstrapState.root;
-    elements.rootPath.textContent = bootstrapState.root;
-
+function bindEvents() {
     elements.fileList.addEventListener("click", event => {
         const target = event.target.closest("[data-path]");
+
         if (!target) {
             return;
         }
 
-        handleSelection(target.dataset.path, target.dataset.type);
+        const pathName = target.dataset.path || "";
+        const type = target.dataset.type || "file";
+
+        if (type === "dir") {
+            openDirectory(pathName).catch(error => setStatus(error.message, "error"));
+            return;
+        }
+
+        openFile(pathName).catch(error => setStatus(error.message, "error"));
     });
 
     elements.breadcrumbs.addEventListener("click", event => {
         const target = event.target.closest("[data-path]");
+
         if (!target) {
             return;
         }
 
-        openDirectory(target.dataset.path);
+        openDirectory(target.dataset.path || "").catch(error => setStatus(error.message, "error"));
+    });
+
+    elements.preview.addEventListener("click", handlePreviewLinkClick);
+
+    elements.searchInput.addEventListener("input", () => {
+        state.filterQuery = elements.searchInput.value;
+        renderFileList();
+    });
+
+    elements.searchInput.addEventListener("keydown", event => {
+        if (event.key === "Escape") {
+            elements.searchInput.value = "";
+            state.filterQuery = "";
+            renderFileList();
+            elements.searchInput.blur();
+        }
+    });
+
+    elements.clearFilter.addEventListener("click", () => {
+        elements.searchInput.value = "";
+        state.filterQuery = "";
+        renderFileList();
+        elements.searchInput.focus();
+    });
+
+    elements.modeView.addEventListener("click", () => {
+        setMode("view").catch(error => setStatus(error.message, "error"));
+    });
+
+    elements.modeEdit.addEventListener("click", () => {
+        setMode("edit").catch(error => setStatus(error.message, "error"));
+    });
+
+    elements.saveFile.addEventListener("click", () => {
+        saveCurrentFile().catch(error => setStatus(error.message, "error"));
+    });
+
+    elements.editorFallback.addEventListener("input", () => {
+        if (state.editorKind === "monaco" && state.editor) {
+            return;
+        }
+
+        state.draftContent = elements.editorFallback.value;
+        state.dirty = state.draftContent !== state.selectedContent;
+        updateSaveButtonState();
+        setStatus(state.dirty ? "Modifiche non salvate." : "Nessuna modifica in sospeso.");
+    });
+
+    window.addEventListener("beforeunload", () => {
+        if (state.editor) {
+            state.editor.dispose();
+        }
     });
 
     document.querySelectorAll("[data-action]").forEach(button => {
@@ -382,7 +1048,7 @@ async function bootstrap() {
             const action = button.dataset.action;
 
             if (action === "up") {
-                await openDirectory(state.currentPath ? state.currentPath.split("/").slice(0, -1).join("/") : "");
+                await openDirectory(state.currentPath ? getParentPath(state.currentPath) : "");
                 return;
             }
 
@@ -397,28 +1063,32 @@ async function bootstrap() {
             }
 
             if (action === "open-code") {
-                try {
-                    await window.repoReader.openInCode(state.currentPath || "");
-                    setStatus("Repository aperto in VS Code.");
-                } catch (error) {
-                    setStatus(error.message, "error");
-                }
+                await window.repoReader.openInCode(state.currentPath || "");
+                setStatus("Repository aperto in VS Code.");
             }
         });
     });
+}
 
-    elements.saveFile.addEventListener("click", handleSave);
+async function bootstrap() {
+    updateModeButtons();
+    elements.editorHost.hidden = true;
+    elements.editorFallback.hidden = false;
+    bindEvents();
 
-    elements.editor.addEventListener("input", () => {
-        state.dirty = elements.editor.value !== state.selectedContent;
-        setStatus(state.dirty ? "Modifiche non salvate." : "Nessuna modifica in sospeso.");
-    });
+    const bootstrapState = await window.repoReader.getBootstrapState();
+    state.root = bootstrapState.root;
+    elements.rootPath.textContent = bootstrapState.root;
 
-    await loadDirectory(bootstrapState.defaultPath);
+    await loadDirectory(bootstrapState.defaultPath || "");
 
     if (!state.currentItems.length) {
-        clearSelection();
+        renderPreview();
     }
+
+    updateSelectionHeader();
+    syncEditorSurface();
+    setStatus("Pronto.");
 }
 
 bootstrap().catch(error => {
