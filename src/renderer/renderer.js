@@ -142,6 +142,7 @@ const state = {
 
 const elements = {
     rootPath: document.getElementById("root-path"),
+    parentFolderButton: document.getElementById("parent-folder-button"),
     breadcrumbs: document.getElementById("breadcrumbs"),
     fileList: document.getElementById("file-list"),
     entryCount: document.getElementById("entry-count"),
@@ -634,6 +635,10 @@ function updateToolbarState() {
     if (!canPrint) {
         closeOverflowMenu();
     }
+
+    if (elements.parentFolderButton) {
+        elements.parentFolderButton.disabled = !state.currentPath;
+    }
 }
 
 function openOverflowMenu() {
@@ -787,12 +792,14 @@ async function printCurrentDocument(printMode) {
 function renderBreadcrumbs() {
     const container = document.createDocumentFragment();
 
-    const rootButton = document.createElement("button");
-    rootButton.type = "button";
-    rootButton.textContent = "Root";
-    rootButton.dataset.path = "";
-    rootButton.className = "breadcrumb";
-    container.appendChild(rootButton);
+    if (!state.currentPath) {
+        const rootLabel = document.createElement("span");
+        rootLabel.className = "breadcrumb breadcrumb-current";
+        rootLabel.textContent = "Radice del workspace";
+        container.appendChild(rootLabel);
+        elements.breadcrumbs.replaceChildren(container);
+        return;
+    }
 
     let prefix = "";
 
@@ -841,15 +848,19 @@ function renderFileList() {
         button.dataset.path = item.path;
         button.dataset.type = item.type;
 
+        const icon = document.createElement("span");
+        icon.className = `file-entry-icon ${item.type === "dir" ? "is-folder" : "is-file"}`;
+        icon.setAttribute("aria-hidden", "true");
+
         const name = document.createElement("span");
         name.className = "file-name";
         name.textContent = item.name;
 
-        const meta = document.createElement("span");
-        meta.className = "file-meta";
-        meta.textContent = item.type === "dir" ? "Cartella" : getFileTypeLabel(item.path, item.type);
+        button.title = item.type === "dir"
+            ? `Cartella: ${item.name}`
+            : `${item.name} - ${getFileTypeLabel(item.path, item.type)}`;
 
-        button.append(name, meta);
+        button.append(icon, name);
         fragment.appendChild(button);
     }
 
@@ -1300,6 +1311,12 @@ function bindEvents() {
         openDirectory(target.dataset.path || "").catch(error => setStatus(error.message, "error"));
     });
 
+    if (elements.parentFolderButton) {
+        elements.parentFolderButton.addEventListener("click", () => {
+            openDirectory(state.currentPath ? getParentPath(state.currentPath) : "").catch(error => setStatus(error.message, "error"));
+        });
+    }
+
     elements.preview.addEventListener("click", handlePreviewLinkClick);
 
     elements.searchInput.addEventListener("input", () => {
@@ -1386,11 +1403,6 @@ function bindEvents() {
 
             if (action === "choose-workspace") {
                 await chooseWorkspace();
-                return;
-            }
-
-            if (action === "up") {
-                await openDirectory(state.currentPath ? getParentPath(state.currentPath) : "");
                 return;
             }
 

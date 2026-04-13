@@ -14,9 +14,14 @@
 
     <div class="app-shell">
         <header class="topbar">
-            <div>
-                <p class="eyebrow">Repo Reader</p>
-                <h1>Navigazione repository e documentazione</h1>
+            <div class="topbar-heading">
+                <div class="brand-row">
+                    <img class="app-mark" src="./favicon.png" alt="" aria-hidden="true">
+                    <div>
+                        <p class="eyebrow">Repo Reader</p>
+                        <h1>Navigazione repository e documentazione</h1>
+                    </div>
+                </div>
                 <p id="root-path" class="subtle"></p>
             </div>
 
@@ -31,7 +36,6 @@
                         <button type="button" id="overflow-button" aria-haspopup="menu" aria-expanded="false">Azioni</button>
                         <div id="overflow-menu" class="action-menu" hidden>
                             <button type="button" data-overflow-action="choose-workspace">Cambia workspace</button>
-                            <button type="button" data-overflow-action="up">Vai alla cartella superiore</button>
                             <button type="button" data-overflow-action="refresh">Aggiorna contenuto</button>
                             <button type="button" data-overflow-action="open-folder">Apri cartella di sistema</button>
                             <button type="button" data-overflow-action="open-code">Apri in VS Code</button>
@@ -41,6 +45,11 @@
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <div class="topbar-pathbar">
+                <button type="button" id="parent-folder-button" class="path-button" aria-label="Vai alla cartella superiore">↖</button>
+                <div id="breadcrumbs" class="breadcrumbs"></div>
             </div>
         </header>
 
@@ -54,7 +63,6 @@
                     <input id="search-input" type="search" placeholder="Filtra cartella o file...">
                     <button type="button" id="clear-filter">Pulisci</button>
                 </div>
-                <div id="breadcrumbs" class="breadcrumbs"></div>
                 <div id="file-list" class="file-list"></div>
             </aside>
 

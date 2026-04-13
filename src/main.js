@@ -922,7 +922,6 @@ function buildPrintableHtml(snapshot = {}) {
                 const pageLookup = new Map();
                 let currentPage = createStandardPage();
                 let currentBody = currentPage.querySelector(".page-body");
-
                 mountNode.append(currentPage);
 
                 for (const unit of units) {
