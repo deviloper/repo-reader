@@ -94,6 +94,7 @@ const state = {
     editable: false,
     dirty: false,
     mode: "view",
+    sidebarCollapsed: false,
     editorKind: "fallback",
     monaco: null,
     monacoLoadPromise: null,
@@ -111,12 +112,19 @@ const elements = {
     preview: document.getElementById("preview"),
     selectedFile: document.getElementById("selected-file"),
     selectedType: document.getElementById("selected-type"),
+    sidebar: document.getElementById("sidebar"),
+    sidebarToggle: document.getElementById("sidebar-toggle"),
     searchInput: document.getElementById("search-input"),
     clearFilter: document.getElementById("clear-filter"),
     modeView: document.querySelector('[data-mode="view"]'),
     modeEdit: document.querySelector('[data-mode="edit"]'),
     editorHost: document.getElementById("editor-host"),
     editorFallback: document.getElementById("editor"),
+    overflowActions: document.getElementById("overflow-actions"),
+    overflowButton: document.getElementById("overflow-button"),
+    overflowMenu: document.getElementById("overflow-menu"),
+    overflowMenuPrint: document.querySelector('[data-print-mode="print"]'),
+    overflowMenuPdf: document.querySelector('[data-print-mode="pdf"]'),
     status: document.getElementById("status"),
     saveFile: document.getElementById("save-file"),
 };
@@ -479,6 +487,114 @@ function updateSaveButtonState() {
     elements.saveFile.disabled = !(state.editable && state.dirty);
 }
 
+function closeOverflowMenu() {
+    if (elements.overflowMenu) {
+        elements.overflowMenu.hidden = true;
+        elements.overflowMenu.dataset.open = "false";
+    }
+
+    if (elements.overflowButton) {
+        elements.overflowButton.setAttribute("aria-expanded", "false");
+    }
+}
+
+function updateToolbarState() {
+    const canPrint = state.selectedType === "file" && Boolean(state.selectedPath);
+
+    if (elements.overflowMenuPrint) {
+        elements.overflowMenuPrint.disabled = !canPrint;
+    }
+
+    if (elements.overflowMenuPdf) {
+        elements.overflowMenuPdf.disabled = !canPrint;
+    }
+
+    if (!canPrint) {
+        closeOverflowMenu();
+    }
+}
+
+function openOverflowMenu() {
+    if (!elements.overflowMenu || !elements.overflowButton) {
+        return;
+    }
+
+    elements.overflowMenu.hidden = false;
+    elements.overflowMenu.dataset.open = "true";
+    elements.overflowButton.setAttribute("aria-expanded", "true");
+}
+
+function toggleOverflowMenu() {
+    if (!elements.overflowMenu || !elements.overflowButton) {
+        return;
+    }
+
+    if (elements.overflowMenu.hidden) {
+        openOverflowMenu();
+        return;
+    }
+
+    closeOverflowMenu();
+}
+
+function setSidebarCollapsed(collapsed) {
+    state.sidebarCollapsed = Boolean(collapsed);
+    document.body.dataset.sidebar = state.sidebarCollapsed ? "collapsed" : "open";
+
+    if (elements.sidebarToggle) {
+        elements.sidebarToggle.setAttribute("aria-pressed", String(!state.sidebarCollapsed));
+        elements.sidebarToggle.textContent = state.sidebarCollapsed ? "Mostra indice" : "Nascondi indice";
+    }
+
+    if (state.editor && state.mode === "edit") {
+        state.editor.layout();
+    }
+}
+
+function buildPrintSnapshot() {
+    if (state.selectedType !== "file" || !state.selectedPath) {
+        return null;
+    }
+
+    return {
+        title: getBaseName(state.selectedPath) || "Documento",
+        sourcePath: state.selectedPath,
+        documentKind: getFileTypeLabel(state.selectedPath, state.selectedType),
+        mode: state.mode,
+        html: renderFilePreview(getPreviewContent(), state.selectedPath),
+    };
+}
+
+async function printCurrentDocument(printMode) {
+    const snapshot = buildPrintSnapshot();
+
+    if (!snapshot) {
+        setStatus("Seleziona un file da stampare.", "error");
+        return;
+    }
+
+    closeOverflowMenu();
+    setStatus(printMode === "pdf" ? "Esportazione PDF in corso..." : "Apertura finestra di stampa...");
+
+    try {
+        const result = await window.repoReader.printDocument(snapshot, { mode: printMode });
+
+        if (printMode === "pdf") {
+            if (result && result.canceled) {
+                setStatus("Esportazione PDF annullata.");
+                return;
+            }
+
+            setStatus(result?.savedPath ? `PDF salvato in ${result.savedPath}` : "PDF esportato.");
+            return;
+        }
+
+        setStatus("Finestra di stampa pronta.");
+    } catch (error) {
+        setStatus(error.message, "error");
+    }
+}
+
 function renderBreadcrumbs() {
     const container = document.createDocumentFragment();
 
@@ -516,9 +632,11 @@ function renderFileList() {
     });
 
     updateEntryCount();
+    updateToolbarState();
 
     if (!state.filteredItems.length) {
         const empty = document.createElement("div");
+        closeOverflowMenu();
         empty.className = "empty-state sidebar-empty";
         empty.textContent = state.filterQuery ? "Nessun risultato per il filtro corrente." : "Nessun file visibile in questa cartella.";
         elements.fileList.replaceChildren(empty);
@@ -619,6 +737,7 @@ function setSelection(pathName, type, content, editable) {
 }
 
 function clearSelection() {
+    closeOverflowMenu();
     state.selectedPath = "";
     state.selectedType = "";
     state.selectedExtension = "";
@@ -866,6 +985,7 @@ async function setMode(nextMode) {
         return;
     }
 
+    closeOverflowMenu();
     state.mode = nextMode;
     updateModeButtons();
 
@@ -1022,6 +1142,15 @@ function bindEvents() {
         setMode("edit").catch(error => setStatus(error.message, "error"));
     });
 
+    elements.sidebarToggle.addEventListener("click", () => {
+        setSidebarCollapsed(!state.sidebarCollapsed);
+    });
+
+    elements.overflowButton.addEventListener("click", event => {
+        event.preventDefault();
+        toggleOverflowMenu();
+    });
+
     elements.saveFile.addEventListener("click", () => {
         saveCurrentFile().catch(error => setStatus(error.message, "error"));
     });
@@ -1043,9 +1172,10 @@ function bindEvents() {
         }
     });
 
-    document.querySelectorAll("[data-action]").forEach(button => {
+    document.querySelectorAll("[data-overflow-action]").forEach(button => {
         button.addEventListener("click", async () => {
-            const action = button.dataset.action;
+            const action = button.dataset.overflowAction;
+            closeOverflowMenu();
 
             if (action === "up") {
                 await openDirectory(state.currentPath ? getParentPath(state.currentPath) : "");
@@ -1065,13 +1195,47 @@ function bindEvents() {
             if (action === "open-code") {
                 await window.repoReader.openInCode(state.currentPath || "");
                 setStatus("Repository aperto in VS Code.");
+                return;
             }
         });
+    });
+
+    if (elements.overflowMenu) {
+        elements.overflowMenu.addEventListener("click", event => {
+            const target = event.target.closest("[data-print-mode]");
+
+            if (!target) {
+                return;
+            }
+
+            event.preventDefault();
+            printCurrentDocument(target.dataset.printMode).catch(error => setStatus(error.message, "error"));
+        });
+    }
+
+    document.addEventListener("click", event => {
+        if (!elements.overflowActions || elements.overflowMenu.hidden) {
+            return;
+        }
+
+        if (event.target instanceof Node && elements.overflowActions.contains(event.target)) {
+            return;
+        }
+
+        closeOverflowMenu();
+    });
+
+    document.addEventListener("keydown", event => {
+        if (event.key === "Escape") {
+            closeOverflowMenu();
+        }
     });
 }
 
 async function bootstrap() {
     updateModeButtons();
+    setSidebarCollapsed(false);
+    updateToolbarState();
     elements.editorHost.hidden = true;
     elements.editorFallback.hidden = false;
     bindEvents();

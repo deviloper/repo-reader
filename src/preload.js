@@ -8,4 +8,5 @@ contextBridge.exposeInMainWorld("repoReader", {
     openFolder: relativePath => ipcRenderer.invoke("repo:open-folder", relativePath),
     openInCode: relativePath => ipcRenderer.invoke("repo:open-in-code", relativePath),
     openExternal: url => ipcRenderer.invoke("repo:open-external", url),
+    printDocument: (snapshot, options) => ipcRenderer.invoke("repo:print-document", snapshot, options),
 });

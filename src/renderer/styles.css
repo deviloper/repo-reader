@@ -69,16 +69,18 @@ input {
     display: flex;
     flex-direction: column;
     height: 100%;
-    padding: 24px;
-    gap: 18px;
+    padding: 14px;
+    gap: 14px;
 }
 
 .topbar {
+    position: relative;
+    z-index: 40;
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: space-between;
-    gap: 20px;
-    padding: 24px 26px;
+    gap: 14px;
+    padding: 14px 16px;
     border: 1px solid var(--panel-border);
     border-radius: var(--radius);
     background: linear-gradient(180deg, rgba(16, 23, 42, 0.96), rgba(9, 15, 27, 0.92));
@@ -97,19 +99,19 @@ input {
 
 h1 {
     margin: 0;
-    font-size: clamp(1.6rem, 2.2vw, 2.5rem);
+    font-size: clamp(1.35rem, 1.8vw, 2rem);
     line-height: 1.05;
 }
 
 .subtle {
-    margin: 8px 0 0;
+    margin: 6px 0 0;
     color: var(--muted);
-    font-size: 0.95rem;
+    font-size: 0.88rem;
 }
 
 .toolbar {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
     justify-content: flex-end;
     align-items: center;
@@ -122,8 +124,20 @@ h1 {
 .toolbar-actions,
 .mode-toggle {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
+    align-items: center;
+}
+
+.overflow-actions {
+    position: relative;
+    display: flex;
+    z-index: 80;
+}
+
+.secondary-toggle,
+#overflow-button {
+    min-width: 124px;
 }
 
 .mode-toggle {
@@ -134,10 +148,15 @@ h1 {
 }
 
 .mode-button {
-    min-width: 108px;
+    min-width: 96px;
 }
 
 .mode-button.is-active {
+    border-color: rgba(127, 181, 255, 0.55);
+    background: linear-gradient(180deg, rgba(77, 146, 255, 0.9), rgba(46, 104, 204, 0.95));
+}
+
+.overflow-actions > button[aria-expanded="true"] {
     border-color: rgba(127, 181, 255, 0.55);
     background: linear-gradient(180deg, rgba(77, 146, 255, 0.9), rgba(46, 104, 204, 0.95));
 }
@@ -146,10 +165,11 @@ button {
     border: 1px solid rgba(127, 181, 255, 0.2);
     background: linear-gradient(180deg, rgba(24, 35, 58, 0.96), rgba(15, 24, 41, 0.96));
     color: var(--text);
-    border-radius: 14px;
-    padding: 10px 14px;
+    border-radius: 12px;
+    padding: 9px 12px;
     cursor: pointer;
     transition: transform 150ms ease, border-color 150ms ease, background 150ms ease;
+    white-space: nowrap;
 }
 
 button:hover:not(:disabled) {
@@ -165,10 +185,14 @@ button:disabled {
 
 .workspace {
     display: grid;
-    grid-template-columns: 340px minmax(0, 1fr);
-    gap: 18px;
+    grid-template-columns: clamp(260px, 22vw, 300px) minmax(0, 1fr);
+    gap: 16px;
     min-height: 0;
     flex: 1;
+}
+
+body[data-sidebar="collapsed"] .workspace {
+    grid-template-columns: minmax(0, 1fr);
 }
 
 .panel {
@@ -184,14 +208,18 @@ button:disabled {
     display: flex;
     flex-direction: column;
     min-height: 0;
-    padding: 18px;
+    padding: 16px;
+}
+
+body[data-sidebar="collapsed"] .sidebar {
+    display: none;
 }
 
 .sidebar-tools {
     display: flex;
     gap: 10px;
     align-items: center;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
 }
 
 .sidebar-tools input {
@@ -237,7 +265,7 @@ body[data-mode="edit"] .editor-panel {
     display: flex;
     flex-direction: column;
     min-height: 0;
-    padding: 18px;
+    padding: 14px;
 }
 
 .panel-head {
@@ -245,7 +273,7 @@ body[data-mode="edit"] .editor-panel {
     align-items: flex-start;
     justify-content: space-between;
     gap: 16px;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
 }
 
 .panel-head span:first-child {
@@ -469,6 +497,40 @@ textarea {
     font-size: 0.9rem;
 }
 
+.action-menu {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 190px;
+    padding: 10px;
+    border: 1px solid rgba(127, 181, 255, 0.18);
+    border-radius: 16px;
+    background: linear-gradient(180deg, rgba(13, 20, 36, 0.98), rgba(9, 14, 26, 0.98));
+    box-shadow: var(--shadow);
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
+}
+
+.action-menu-divider {
+    height: 1px;
+    margin: 4px 0;
+    background: rgba(127, 181, 255, 0.18);
+}
+
+.action-menu[hidden] {
+    display: none;
+}
+
+.action-menu button {
+    width: 100%;
+    justify-content: flex-start;
+    text-align: left;
+}
+
 #status[data-tone="error"] {
     color: var(--danger);
 }
@@ -485,7 +547,7 @@ textarea {
     }
 
     .app-shell {
-        padding: 16px;
+        padding: 12px;
     }
 
     .topbar {
@@ -495,6 +557,22 @@ textarea {
 
     .toolbar {
         justify-content: flex-start;
+        width: 100%;
+    }
+
+    .toolbar-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .print-actions {
+        width: 100%;
+    }
+
+    .action-menu {
+        right: auto;
+        left: 0;
+        width: min(100%, 260px);
     }
 
     .toolbar-actions,

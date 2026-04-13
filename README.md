@@ -113,4 +113,16 @@ La base iniziale ora include:
 3. navigazione delle cartelle del repository con filtro e breadcrumb;
 4. anteprima Markdown integrata;
 5. un editor Monaco attivato solo in modalità modifica, con salvataggio diretto;
-6. apertura della cartella nel file manager e in VS Code quando disponibile.
+6. apertura della cartella nel file manager e in VS Code quando disponibile;
+7. stampa del documento ed esportazione PDF tramite un menu compatto.
+
+## Direzione UI consigliata
+
+Per evitare che la UI diventi troppo densa, la linea migliore è spostare le azioni meno frequenti in un menu overflow e introdurre un vero document focus mode:
+
+1. barra superiore ridotta alle sole azioni primarie e al toggle di modalità;
+2. sidebar comprimibile o richiudibile in un rail più stretto;
+3. stampa, export PDF e altre azioni secondarie dentro un menu contestuale;
+4. area documento estesa quasi a tutta la finestra quando si lavora in lettura o modifica.
+
+In pratica, il documento deve restare il centro della schermata e il resto dell’interfaccia deve arretrare quando non è necessario.

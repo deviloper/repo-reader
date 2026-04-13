@@ -25,16 +25,25 @@
                     <button type="button" data-mode="edit" class="mode-button">Modifica</button>
                 </div>
                 <div class="toolbar-actions">
-                    <button type="button" data-action="up">Su</button>
-                    <button type="button" data-action="refresh">Aggiorna</button>
-                    <button type="button" data-action="open-folder">Apri cartella</button>
-                    <button type="button" data-action="open-code">Apri in VS Code</button>
+                    <button type="button" id="sidebar-toggle" class="secondary-toggle" aria-pressed="true">Nascondi indice</button>
+                    <div class="overflow-actions" id="overflow-actions">
+                        <button type="button" id="overflow-button" aria-haspopup="menu" aria-expanded="false">Azioni</button>
+                        <div id="overflow-menu" class="action-menu" hidden>
+                            <button type="button" data-overflow-action="up">Vai alla cartella superiore</button>
+                            <button type="button" data-overflow-action="refresh">Aggiorna contenuto</button>
+                            <button type="button" data-overflow-action="open-folder">Apri cartella di sistema</button>
+                            <button type="button" data-overflow-action="open-code">Apri in VS Code</button>
+                            <div class="action-menu-divider"></div>
+                            <button type="button" data-print-mode="print">Stampa documento</button>
+                            <button type="button" data-print-mode="pdf">Esporta PDF</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </header>
 
         <main class="workspace">
-            <aside class="sidebar panel">
+            <aside class="sidebar panel" id="sidebar">
                 <div class="panel-head">
                     <span>Struttura</span>
                     <span id="entry-count" class="badge"></span>
