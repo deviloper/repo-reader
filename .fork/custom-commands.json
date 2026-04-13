@@ -1,0 +1,15 @@
+[
+  {
+    "version" : 2
+  },
+  {
+    "action" : {
+      "script" : "npm start",
+      "showOutput" : false,
+      "type" : "sh",
+      "waitForExit" : true
+    },
+    "name" : "Start Repo Reader",
+    "target" : "repository"
+  }
+]
