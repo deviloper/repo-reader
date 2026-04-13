@@ -180,6 +180,64 @@ function formatTimestamp(date = new Date()) {
     }).format(date);
 }
 
+function getPrintPreset(snapshot = {}) {
+    const presetId = snapshot.preset && typeof snapshot.preset.id === "string" ? snapshot.preset.id : "public";
+
+    const presets = {
+        restricted: {
+            label: "Strettamente riservato",
+            shortLabel: "Riservato",
+            note: "Distribuzione vietata salvo autorizzazione espressa del titolare del documento.",
+            accent: "#8b1e2d",
+            soft: "#fdf2f3",
+            watermark: "STRETTAMENTE RISERVATO",
+            footer: "Classificazione massima: uso strettamente limitato.",
+        },
+        internal: {
+            label: "Solo interno ad una azienda",
+            shortLabel: "Interno",
+            note: "Documento destinato esclusivamente all'uso interno del personale aziendale.",
+            accent: "#8a5b14",
+            soft: "#fff7ed",
+            watermark: "USO INTERNO",
+            footer: "Non distribuire fuori dall'organizzazione.",
+        },
+        nda: {
+            label: "Partner sotto accordo di non divulgazione",
+            shortLabel: "NDA",
+            note: "Condivisione consentita solo con partner coperti da accordo di non divulgazione.",
+            accent: "#155eef",
+            soft: "#eff4ff",
+            watermark: "NDA",
+            footer: "Documento condivisibile solo entro i perimetri previsti dagli accordi NDA.",
+        },
+        public: {
+            label: "Pubblico",
+            shortLabel: "Pubblico",
+            note: "Documento distribuibile senza restrizioni di confidenzialita'.",
+            accent: "#027a48",
+            soft: "#ecfdf3",
+            watermark: "",
+            footer: "Documento destinato alla distribuzione pubblica.",
+        },
+    };
+
+    return presets[presetId] || presets.public;
+}
+
+function getPrintableBaseName(snapshot = {}) {
+    const rawTitle = String(snapshot.title || "").trim();
+    const sourcePath = String(snapshot.sourcePath || "");
+    const candidate = rawTitle || path.posix.basename(sourcePath) || "documento";
+    const parsed = path.posix.parse(candidate);
+
+    if (parsed.name) {
+        return parsed.name;
+    }
+
+    return candidate;
+}
+
 function buildPrintableHtml(snapshot = {}) {
     const title = escapeHtml(snapshot.title || "Documento");
     const sourcePath = escapeHtml(snapshot.sourcePath || "");
@@ -187,6 +245,11 @@ function buildPrintableHtml(snapshot = {}) {
     const modeLabel = escapeHtml(snapshot.mode === "edit" ? "Modifica" : "Visualizzazione");
     const generatedAt = escapeHtml(formatTimestamp());
     const contentHtml = snapshot.html || '<p class="print-empty">Nessun contenuto disponibile.</p>';
+    const preset = getPrintPreset(snapshot);
+    const presetLabel = escapeHtml(preset.label);
+    const presetNote = escapeHtml(preset.note);
+    const presetFooter = escapeHtml(preset.footer);
+    const watermark = escapeHtml(preset.watermark);
 
     return `<!doctype html>
 <html lang="it">
@@ -197,13 +260,13 @@ function buildPrintableHtml(snapshot = {}) {
     <style>
         :root {
             color-scheme: light;
-            --page-bg: #eef1f6;
+            --page-bg: #ffffff;
             --page-surface: #ffffff;
             --page-border: #e4e7ec;
             --page-text: #1f2937;
             --page-muted: #667085;
-            --page-accent: #3559a8;
-            --page-soft: #f5f6f8;
+            --page-accent: ${preset.accent};
+            --page-soft: ${preset.soft};
         }
 
         @page {
@@ -219,31 +282,56 @@ function buildPrintableHtml(snapshot = {}) {
         body {
             margin: 0;
             min-height: 100%;
+            width: 100%;
+            background: #ffffff;
         }
 
         body {
             font-family: "Aptos", "Segoe UI", "Calibri", sans-serif;
             color: var(--page-text);
-            background: var(--page-bg);
+            background: #ffffff;
             line-height: 1.55;
             -webkit-font-smoothing: antialiased;
             text-rendering: optimizeLegibility;
         }
 
         .page {
-            width: min(210mm, calc(100vw - 32px));
-            min-height: calc(297mm - 28mm);
-            margin: 16px auto;
+            width: 100%;
+            min-height: 100vh;
+            margin: 0;
             background: var(--page-surface);
             border: 0;
             border-radius: 0;
-            box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+            box-shadow: none;
             overflow: hidden;
+            position: relative;
         }
 
         .page-inner {
             padding: 18mm 20mm 20mm;
-            background: #ffffff;
+            position: relative;
+            min-height: 100vh;
+        }
+
+        .document-layer {
+            position: relative;
+            z-index: 1;
+            background: transparent;
+        }
+
+        .watermark {
+            position: absolute;
+            top: 48%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-24deg);
+            font-size: 40pt;
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            color: rgba(17, 24, 39, 0.09);
+            white-space: nowrap;
+            pointer-events: none;
+            user-select: none;
+            z-index: 0;
         }
 
         .doc-header {
@@ -260,6 +348,28 @@ function buildPrintableHtml(snapshot = {}) {
             letter-spacing: 0.16em;
             text-transform: uppercase;
             color: var(--page-accent);
+        }
+
+        .classification-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 10px 14px;
+            margin-bottom: 18px;
+            border-left: 4px solid var(--page-accent);
+            background: var(--page-soft);
+        }
+
+        .classification-title {
+            font-size: 10.5pt;
+            font-weight: 700;
+            color: #111827;
+        }
+
+        .classification-note {
+            font-size: 10pt;
+            color: #475467;
         }
 
         h1 {
@@ -390,6 +500,14 @@ function buildPrintableHtml(snapshot = {}) {
             color: #111827;
         }
 
+        .doc-footer {
+            margin-top: 26px;
+            padding-top: 12px;
+            border-top: 1px solid #d0d5dd;
+            font-size: 9.5pt;
+            color: #667085;
+        }
+
         .doc-content hr {
             border: 0;
             height: 1px;
@@ -418,6 +536,11 @@ function buildPrintableHtml(snapshot = {}) {
 
             .page-inner {
                 padding: 0;
+                min-height: auto;
+            }
+
+            .watermark {
+                color: rgba(17, 24, 39, 0.08);
             }
         }
     </style>
@@ -425,19 +548,27 @@ function buildPrintableHtml(snapshot = {}) {
 <body>
     <article class="page">
         <div class="page-inner">
-            <header class="doc-header">
-                <div class="doc-brand">Repo Reader</div>
-                <h1>${title}</h1>
-                <div class="doc-meta">
-                    <span>${documentKind}</span>
-                    <span>${modeLabel}</span>
-                    <span>${generatedAt}</span>
-                    ${sourcePath ? `<span>${sourcePath}</span>` : ""}
-                </div>
-            </header>
-            <main class="doc-content">
-                ${contentHtml}
-            </main>
+            ${watermark ? `<div class="watermark">${watermark}</div>` : ""}
+            <div class="document-layer">
+                <header class="doc-header">
+                    <div class="doc-brand">Repo Reader</div>
+                    <h1>${title}</h1>
+                    <div class="doc-meta">
+                        <span>${documentKind}</span>
+                        <span>${modeLabel}</span>
+                        <span>${generatedAt}</span>
+                        ${sourcePath ? `<span>${sourcePath}</span>` : ""}
+                    </div>
+                </header>
+                <section class="classification-bar">
+                    <div class="classification-title">${presetLabel}</div>
+                    <div class="classification-note">${presetNote}</div>
+                </section>
+                <main class="doc-content">
+                    ${contentHtml}
+                </main>
+                <footer class="doc-footer">${presetFooter}</footer>
+            </div>
         </div>
     </article>
 </body>
@@ -446,7 +577,7 @@ function buildPrintableHtml(snapshot = {}) {
 
 function getDefaultPdfPath(snapshot = {}) {
     const sourcePath = String(snapshot.sourcePath || "");
-    const baseName = sanitizeFileName(snapshot.title || path.posix.basename(sourcePath) || "documento");
+    const baseName = sanitizeFileName(getPrintableBaseName(snapshot));
     const directoryName = sourcePath ? path.posix.dirname(sourcePath) : "";
 
     return path.join(ROOT, directoryName || ".", `${baseName}.pdf`);
@@ -499,7 +630,7 @@ function createPrintWindow(snapshot) {
         show: false,
         width: 1280,
         height: 1600,
-        backgroundColor: "#e7ebf3",
+        backgroundColor: "#ffffff",
         autoHideMenuBar: true,
         webPreferences: {
             contextIsolation: true,

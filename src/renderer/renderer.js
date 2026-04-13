@@ -80,6 +80,33 @@ const MONACO_LANGUAGE_BY_EXTENSION = new Map([
     [".ps1", "powershell"],
 ]);
 
+const PRINT_PRESETS = {
+    restricted: {
+        id: "restricted",
+        label: "Strettamente riservato",
+        shortLabel: "Riservato",
+        note: "Distribuzione vietata salvo autorizzazione espressa del titolare del documento.",
+    },
+    internal: {
+        id: "internal",
+        label: "Solo interno ad una azienda",
+        shortLabel: "Interno",
+        note: "Documento destinato esclusivamente all'uso interno del personale aziendale.",
+    },
+    nda: {
+        id: "nda",
+        label: "Partner sotto accordo di non divulgazione",
+        shortLabel: "NDA",
+        note: "Condivisione consentita solo con partner coperti da accordo di non divulgazione.",
+    },
+    public: {
+        id: "public",
+        label: "Pubblico",
+        shortLabel: "Pubblico",
+        note: "Documento distribuibile senza restrizioni di confidenzialita'.",
+    },
+};
+
 const state = {
     root: "",
     currentPath: "",
@@ -95,6 +122,7 @@ const state = {
     dirty: false,
     mode: "view",
     sidebarCollapsed: false,
+    printPreset: "public",
     editorKind: "fallback",
     monaco: null,
     monacoLoadPromise: null,
@@ -123,11 +151,16 @@ const elements = {
     overflowActions: document.getElementById("overflow-actions"),
     overflowButton: document.getElementById("overflow-button"),
     overflowMenu: document.getElementById("overflow-menu"),
+    printPreset: document.getElementById("print-preset"),
     overflowMenuPrint: document.querySelector('[data-print-mode="print"]'),
     overflowMenuPdf: document.querySelector('[data-print-mode="pdf"]'),
     status: document.getElementById("status"),
     saveFile: document.getElementById("save-file"),
 };
+
+function getSelectedPrintPreset() {
+    return PRINT_PRESETS[state.printPreset] || PRINT_PRESETS.public;
+}
 
 function escapeHtml(text) {
     return String(text)
@@ -556,11 +589,14 @@ function buildPrintSnapshot() {
         return null;
     }
 
+    const preset = getSelectedPrintPreset();
+
     return {
         title: getBaseName(state.selectedPath) || "Documento",
         sourcePath: state.selectedPath,
         documentKind: getFileTypeLabel(state.selectedPath, state.selectedType),
         mode: state.mode,
+        preset,
         html: renderFilePreview(getPreviewContent(), state.selectedPath),
     };
 }
@@ -1146,6 +1182,11 @@ function bindEvents() {
         setSidebarCollapsed(!state.sidebarCollapsed);
     });
 
+    elements.printPreset.addEventListener("change", () => {
+        state.printPreset = elements.printPreset.value;
+        setStatus(`Preset stampa: ${getSelectedPrintPreset().label}.`);
+    });
+
     elements.overflowButton.addEventListener("click", event => {
         event.preventDefault();
         toggleOverflowMenu();
@@ -1236,6 +1277,7 @@ async function bootstrap() {
     updateModeButtons();
     setSidebarCollapsed(false);
     updateToolbarState();
+    elements.printPreset.value = state.printPreset;
     elements.editorHost.hidden = true;
     elements.editorFallback.hidden = false;
     bindEvents();

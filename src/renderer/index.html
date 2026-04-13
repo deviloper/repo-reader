@@ -34,6 +34,16 @@
                             <button type="button" data-overflow-action="open-folder">Apri cartella di sistema</button>
                             <button type="button" data-overflow-action="open-code">Apri in VS Code</button>
                             <div class="action-menu-divider"></div>
+                            <label class="menu-field" for="print-preset">
+                                <span>Preset stampa</span>
+                                <select id="print-preset">
+                                    <option value="restricted">Strettamente riservato</option>
+                                    <option value="internal">Solo interno ad una azienda</option>
+                                    <option value="nda">Partner sotto NDA</option>
+                                    <option value="public" selected>Pubblico</option>
+                                </select>
+                            </label>
+                            <div class="action-menu-divider"></div>
                             <button type="button" data-print-mode="print">Stampa documento</button>
                             <button type="button" data-print-mode="pdf">Esporta PDF</button>
                         </div>

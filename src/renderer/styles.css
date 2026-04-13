@@ -521,6 +521,34 @@ textarea {
     background: rgba(127, 181, 255, 0.18);
 }
 
+.menu-field {
+    display: grid;
+    gap: 8px;
+    padding: 4px 2px 8px;
+    color: var(--muted);
+    font-size: 0.82rem;
+}
+
+.menu-field span {
+    color: var(--text);
+    font-weight: 600;
+}
+
+.menu-field select {
+    width: 100%;
+    border: 1px solid rgba(127, 181, 255, 0.18);
+    border-radius: 12px;
+    background: rgba(4, 8, 18, 0.88);
+    color: var(--text);
+    padding: 10px 12px;
+    outline: none;
+}
+
+.menu-field select:focus {
+    border-color: rgba(127, 181, 255, 0.45);
+    box-shadow: 0 0 0 3px rgba(127, 181, 255, 0.1);
+}
+
 .action-menu[hidden] {
     display: none;
 }
