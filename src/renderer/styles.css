@@ -135,6 +135,8 @@ h1 {
     align-items: center;
     gap: 10px;
     min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: thin;
 }
 
 .path-button {
@@ -351,21 +353,45 @@ body[data-mode="edit"] .editor-panel {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     min-width: 0;
+    color: var(--muted);
+    font-size: 0.82rem;
 }
 
 .breadcrumb {
-    padding: 6px 10px;
-    border-radius: 999px;
-    font-size: 0.82rem;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
+.breadcrumb-root,
+.breadcrumb-link {
+    border: 0;
+    background: transparent;
+    color: var(--accent);
+    padding: 0;
+    border-radius: 0;
+    min-width: 0;
+}
+
+.breadcrumb-link:hover,
+.breadcrumb-root:hover {
+    transform: none;
+    color: #d9e7ff;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    background: transparent;
+}
+
 .breadcrumb-current {
     color: var(--muted);
+    font-weight: 600;
+}
+
+.breadcrumb-separator {
+    color: rgba(145, 164, 200, 0.7);
+    flex-shrink: 0;
 }
 
 .file-list {

@@ -259,7 +259,6 @@ function getPrintableBaseName(snapshot = {}) {
 
     return candidate;
 }
-
 function buildPrintableHtml(snapshot = {}) {
     const title = escapeHtml(getPrintableBaseName(snapshot) || "Documento");
     const generatedAt = escapeHtml(formatTimestamp());
@@ -691,6 +690,7 @@ function buildPrintableHtml(snapshot = {}) {
             background: transparent;
             color: inherit;
             white-space: pre-wrap;
+            overflow-wrap: anywhere;
         }
 
         .document-content a {
@@ -925,6 +925,14 @@ function buildPrintableHtml(snapshot = {}) {
                 mountNode.append(currentPage);
 
                 for (const unit of units) {
+                    const isCodeBlockUnit = Boolean(unit.querySelector("pre.code-block"));
+
+                    if (isCodeBlockUnit && currentBody.children.length) {
+                        currentPage = createStandardPage();
+                        currentBody = currentPage.querySelector(".page-body");
+                        mountNode.append(currentPage);
+                    }
+
                     currentBody.append(unit);
 
                     if (currentBody.scrollHeight > currentBody.clientHeight + 2 && currentBody.children.length > 1) {

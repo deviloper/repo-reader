@@ -795,22 +795,34 @@ function renderBreadcrumbs() {
     if (!state.currentPath) {
         const rootLabel = document.createElement("span");
         rootLabel.className = "breadcrumb breadcrumb-current";
-        rootLabel.textContent = "Radice del workspace";
+        rootLabel.textContent = "Workspace";
         container.appendChild(rootLabel);
         elements.breadcrumbs.replaceChildren(container);
         return;
     }
+
+    const rootButton = document.createElement("button");
+    rootButton.type = "button";
+    rootButton.textContent = "Workspace";
+    rootButton.dataset.path = "";
+    rootButton.className = "breadcrumb breadcrumb-root";
+    container.appendChild(rootButton);
 
     let prefix = "";
 
     for (const fragment of splitPath(state.currentPath)) {
         prefix = prefix ? `${prefix}/${fragment}` : fragment;
 
+        const separator = document.createElement("span");
+        separator.className = "breadcrumb-separator";
+        separator.textContent = "/";
+        container.appendChild(separator);
+
         const button = document.createElement("button");
         button.type = "button";
         button.textContent = fragment;
         button.dataset.path = prefix;
-        button.className = "breadcrumb";
+        button.className = "breadcrumb breadcrumb-link";
         container.appendChild(button);
     }
 
