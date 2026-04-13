@@ -3,8 +3,15 @@ const fs = require("fs");
 const path = require("path");
 const { spawn } = require("child_process");
 
-const ROOT = path.resolve(process.env.REPO_READER_ROOT || process.cwd());
-const DEFAULT_PATH = fs.existsSync(path.join(ROOT, "docs")) ? "docs" : "";
+let currentRoot = path.resolve(process.env.REPO_READER_ROOT || process.cwd());
+
+function getRoot() {
+    return currentRoot;
+}
+
+function getDefaultPath() {
+    return fs.existsSync(path.join(getRoot(), "docs")) ? "docs" : "";
+}
 
 function toPosixPath(value) {
     return String(value || "").replace(/\\/g, "/");
@@ -12,8 +19,9 @@ function toPosixPath(value) {
 
 function resolveWithinRoot(relativePath = "") {
     const safeRelativePath = toPosixPath(relativePath);
-    const absolutePath = path.resolve(ROOT, safeRelativePath || ".");
-    const relativeToRoot = path.relative(ROOT, absolutePath);
+    const root = getRoot();
+    const absolutePath = path.resolve(root, safeRelativePath || ".");
+    const relativeToRoot = path.relative(root, absolutePath);
 
     if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
         throw new Error("Percorso non valido");
@@ -580,7 +588,7 @@ function getDefaultPdfPath(snapshot = {}) {
     const baseName = sanitizeFileName(getPrintableBaseName(snapshot));
     const directoryName = sourcePath ? path.posix.dirname(sourcePath) : "";
 
-    return path.join(ROOT, directoryName || ".", `${baseName}.pdf`);
+    return path.join(getRoot(), directoryName || ".", `${baseName}.pdf`);
 }
 
 function waitForPrintableLayout(printWindow) {
@@ -616,6 +624,27 @@ async function ensurePrintWindowReady(printWindow) {
     }
 
     return layout;
+}
+
+async function chooseWorkspace(browserWindow) {
+    const result = await dialog.showOpenDialog(browserWindow, {
+        title: "Seleziona workspace",
+        properties: ["openDirectory", "createDirectory"],
+        defaultPath: getRoot(),
+    });
+
+    if (result.canceled || !result.filePaths.length) {
+        return { canceled: true, root: getRoot(), defaultPath: getDefaultPath() };
+    }
+
+    const selectedRoot = path.resolve(result.filePaths[0]);
+    currentRoot = selectedRoot;
+
+    return {
+        canceled: false,
+        root: currentRoot,
+        defaultPath: getDefaultPath(),
+    };
 }
 
 function getA4PageSizeMicrons() {
@@ -767,7 +796,7 @@ async function openWithCode(absolutePath) {
         }
 
         try {
-            await launchDetached(candidate.command, candidate.args, { cwd: ROOT });
+            await launchDetached(candidate.command, candidate.args, { cwd: getRoot() });
             return;
         } catch (error) {
             errors.push(error.message);
@@ -809,8 +838,8 @@ function createWindow() {
 
 app.whenReady().then(() => {
     ipcMain.handle("repo:get-bootstrap", () => ({
-        root: ROOT,
-        defaultPath: DEFAULT_PATH,
+        root: getRoot(),
+        defaultPath: getDefaultPath(),
     }));
 
     ipcMain.handle("repo:list-directory", (_, relativePath = "") => listDirectory(relativePath));
@@ -836,6 +865,7 @@ app.whenReady().then(() => {
     });
     ipcMain.handle("repo:open-external", (_, url) => openExternalUrl(url));
     ipcMain.handle("repo:print-document", async (_, snapshot, options = {}) => printDocument(snapshot, options));
+    ipcMain.handle("repo:choose-workspace", event => chooseWorkspace(BrowserWindow.fromWebContents(event.sender)));
 
     createWindow();
 

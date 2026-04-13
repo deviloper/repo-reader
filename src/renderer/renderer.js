@@ -584,6 +584,42 @@ function setSidebarCollapsed(collapsed) {
     }
 }
 
+async function applyWorkspaceState(workspaceState, statusMessage) {
+    if (!workspaceState || !workspaceState.root) {
+        return;
+    }
+
+    closeOverflowMenu();
+    state.root = workspaceState.root;
+    state.currentPath = "";
+    state.currentItems = [];
+    state.filteredItems = [];
+    state.filterQuery = "";
+    elements.searchInput.value = "";
+    clearSelection();
+    elements.rootPath.textContent = workspaceState.root;
+
+    await loadDirectory(workspaceState.defaultPath || "");
+    updateSelectionHeader();
+    syncEditorSurface();
+    setStatus(statusMessage || "Workspace aggiornato.");
+}
+
+async function chooseWorkspace() {
+    try {
+        const result = await window.repoReader.chooseWorkspace();
+
+        if (!result || result.canceled) {
+            setStatus("Cambio workspace annullato.");
+            return;
+        }
+
+        await applyWorkspaceState(result, `Workspace attivo: ${result.root}`);
+    } catch (error) {
+        setStatus(error.message, "error");
+    }
+}
+
 function buildPrintSnapshot() {
     if (state.selectedType !== "file" || !state.selectedPath) {
         return null;
@@ -1218,6 +1254,11 @@ function bindEvents() {
             const action = button.dataset.overflowAction;
             closeOverflowMenu();
 
+            if (action === "choose-workspace") {
+                await chooseWorkspace();
+                return;
+            }
+
             if (action === "up") {
                 await openDirectory(state.currentPath ? getParentPath(state.currentPath) : "");
                 return;
@@ -1283,10 +1324,7 @@ async function bootstrap() {
     bindEvents();
 
     const bootstrapState = await window.repoReader.getBootstrapState();
-    state.root = bootstrapState.root;
-    elements.rootPath.textContent = bootstrapState.root;
-
-    await loadDirectory(bootstrapState.defaultPath || "");
+    await applyWorkspaceState(bootstrapState, "Pronto.");
 
     if (!state.currentItems.length) {
         renderPreview();
@@ -1294,7 +1332,6 @@ async function bootstrap() {
 
     updateSelectionHeader();
     syncEditorSurface();
-    setStatus("Pronto.");
 }
 
 bootstrap().catch(error => {
