@@ -83,20 +83,20 @@ const MONACO_LANGUAGE_BY_EXTENSION = new Map([
 const PRINT_PRESETS = {
     restricted: {
         id: "restricted",
-        label: "Strettamente riservato",
+        label: "Riservato",
         shortLabel: "Riservato",
         note: "Distribuzione vietata salvo autorizzazione espressa del titolare del documento.",
     },
     internal: {
         id: "internal",
-        label: "Solo interno ad una azienda",
+        label: "Interno",
         shortLabel: "Interno",
         note: "Documento destinato esclusivamente all'uso interno del personale aziendale.",
     },
     nda: {
         id: "nda",
-        label: "Partner sotto accordo di non divulgazione",
-        shortLabel: "NDA",
+        label: "Partner",
+        shortLabel: "Partner",
         note: "Condivisione consentita solo con partner coperti da accordo di non divulgazione.",
     },
     public: {
@@ -127,8 +127,10 @@ const state = {
     printPreset: "public",
     printProfile: {
         authorName: "",
-        companyName: "",
+        organizationName: "",
+        includeOrganization: false,
     },
+    pendingPrintMode: "print",
     editorKind: "fallback",
     monaco: null,
     monacoLoadPromise: null,
@@ -157,9 +159,14 @@ const elements = {
     overflowActions: document.getElementById("overflow-actions"),
     overflowButton: document.getElementById("overflow-button"),
     overflowMenu: document.getElementById("overflow-menu"),
-    printPreset: document.getElementById("print-preset"),
-    printAuthorName: document.getElementById("print-author-name"),
-    printCompanyName: document.getElementById("print-company-name"),
+    printDialog: document.getElementById("print-dialog"),
+    closePrintDialog: document.getElementById("close-print-dialog"),
+    cancelPrintDialog: document.getElementById("cancel-print-dialog"),
+    confirmPrintDialog: document.getElementById("confirm-print-dialog"),
+    printDialogPreset: document.getElementById("print-dialog-preset"),
+    printDialogAuthorName: document.getElementById("print-dialog-author-name"),
+    printDialogIncludeOrganization: document.getElementById("print-dialog-include-organization"),
+    printDialogOrganizationName: document.getElementById("print-dialog-organization-name"),
     overflowMenuPrint: document.querySelector('[data-print-mode="print"]'),
     overflowMenuPdf: document.querySelector('[data-print-mode="pdf"]'),
     status: document.getElementById("status"),
@@ -180,10 +187,12 @@ function loadPrintProfile() {
 
         const parsedValue = JSON.parse(rawValue);
         state.printProfile.authorName = String(parsedValue.authorName || "").trim();
-        state.printProfile.companyName = String(parsedValue.companyName || "").trim();
+        state.printProfile.organizationName = String(parsedValue.organizationName || parsedValue.companyName || "").trim();
+        state.printProfile.includeOrganization = Boolean(parsedValue.includeOrganization);
     } catch {
         state.printProfile.authorName = "";
-        state.printProfile.companyName = "";
+        state.printProfile.organizationName = "";
+        state.printProfile.includeOrganization = false;
     }
 }
 
@@ -196,14 +205,50 @@ function persistPrintProfile() {
 }
 
 function syncPrintProfileInputs() {
-    elements.printAuthorName.value = state.printProfile.authorName;
-    elements.printCompanyName.value = state.printProfile.companyName;
+    elements.printDialogPreset.value = state.printPreset;
+    elements.printDialogAuthorName.value = state.printProfile.authorName;
+    elements.printDialogIncludeOrganization.checked = state.printProfile.includeOrganization;
+    elements.printDialogOrganizationName.value = state.printProfile.organizationName;
+    updatePrintDialogOrganizationState();
 }
 
 function updatePrintProfileFromInputs() {
-    state.printProfile.authorName = elements.printAuthorName.value.trim();
-    state.printProfile.companyName = elements.printCompanyName.value.trim();
+    state.printPreset = elements.printDialogPreset.value;
+    state.printProfile.authorName = elements.printDialogAuthorName.value.trim();
+    state.printProfile.includeOrganization = elements.printDialogIncludeOrganization.checked;
+    state.printProfile.organizationName = elements.printDialogOrganizationName.value.trim();
     persistPrintProfile();
+}
+
+function isOrganizationRequiredForPreset(presetId = state.printPreset) {
+    return presetId === "internal" || presetId === "nda";
+}
+
+function updatePrintDialogOrganizationState() {
+    const organizationRequired = isOrganizationRequiredForPreset(elements.printDialogPreset.value);
+
+    if (organizationRequired) {
+        elements.printDialogIncludeOrganization.checked = true;
+        elements.printDialogIncludeOrganization.disabled = true;
+    } else {
+        elements.printDialogIncludeOrganization.disabled = false;
+    }
+
+    elements.printDialogOrganizationName.disabled = !elements.printDialogIncludeOrganization.checked;
+}
+
+function openPrintDialog(printMode) {
+    state.pendingPrintMode = printMode === "pdf" ? "pdf" : "print";
+    syncPrintProfileInputs();
+    elements.confirmPrintDialog.textContent = state.pendingPrintMode === "pdf" ? "Esporta PDF" : "Stampa";
+    elements.printDialog.hidden = false;
+    document.body.dataset.modal = "print";
+    queueMicrotask(() => elements.printDialogAuthorName.focus());
+}
+
+function closePrintDialog() {
+    elements.printDialog.hidden = true;
+    delete document.body.dataset.modal;
 }
 
 function escapeHtml(text) {
@@ -635,8 +680,12 @@ function validatePrintProfile() {
         return "Inserisci nome e cognome dell'autore prima di stampare.";
     }
 
-    if ((preset.id === "internal" || preset.id === "nda") && !state.printProfile.companyName) {
-        return "Inserisci il nome dell'azienda per il preset di stampa selezionato.";
+    if (isOrganizationRequiredForPreset(preset.id) && !state.printProfile.organizationName) {
+        return "Inserisci il nome dell'organizzazione per il preset di stampa selezionato.";
+    }
+
+    if (state.printProfile.includeOrganization && !state.printProfile.organizationName) {
+        return "Inserisci il nome dell'organizzazione oppure disattiva la relativa opzione.";
     }
 
     return "";
@@ -690,7 +739,7 @@ function buildPrintSnapshot() {
         sourcePath: state.selectedPath,
         preset,
         authorName: state.printProfile.authorName,
-        companyName: state.printProfile.companyName,
+        organizationName: state.printProfile.includeOrganization ? state.printProfile.organizationName : "",
         html: renderFilePreview(getPreviewContent(), state.selectedPath),
     };
 }
@@ -713,6 +762,7 @@ async function printCurrentDocument(printMode) {
     }
 
     closeOverflowMenu();
+    closePrintDialog();
     setStatus(printMode === "pdf" ? "Esportazione PDF in corso..." : "Apertura finestra di stampa...");
 
     try {
@@ -1285,13 +1335,23 @@ function bindEvents() {
         setSidebarCollapsed(!state.sidebarCollapsed);
     });
 
-    elements.printPreset.addEventListener("change", () => {
-        state.printPreset = elements.printPreset.value;
+    elements.printDialogPreset.addEventListener("change", () => {
+        state.printPreset = elements.printDialogPreset.value;
+        updatePrintDialogOrganizationState();
         setStatus(`Preset stampa: ${getSelectedPrintPreset().label}.`);
     });
 
-    elements.printAuthorName.addEventListener("input", updatePrintProfileFromInputs);
-    elements.printCompanyName.addEventListener("input", updatePrintProfileFromInputs);
+    elements.printDialogAuthorName.addEventListener("input", updatePrintProfileFromInputs);
+    elements.printDialogIncludeOrganization.addEventListener("change", () => {
+        updatePrintDialogOrganizationState();
+        updatePrintProfileFromInputs();
+    });
+    elements.printDialogOrganizationName.addEventListener("input", updatePrintProfileFromInputs);
+    elements.closePrintDialog.addEventListener("click", closePrintDialog);
+    elements.cancelPrintDialog.addEventListener("click", closePrintDialog);
+    elements.confirmPrintDialog.addEventListener("click", () => {
+        printCurrentDocument(state.pendingPrintMode).catch(error => setStatus(error.message, "error"));
+    });
 
     elements.overflowButton.addEventListener("click", event => {
         event.preventDefault();
@@ -1361,9 +1421,15 @@ function bindEvents() {
             }
 
             event.preventDefault();
-            printCurrentDocument(target.dataset.printMode).catch(error => setStatus(error.message, "error"));
+            openPrintDialog(target.dataset.printMode);
         });
     }
+
+    elements.printDialog.addEventListener("click", event => {
+        if (event.target.closest("[data-modal-close='print']")) {
+            closePrintDialog();
+        }
+    });
 
     document.addEventListener("click", event => {
         if (!elements.overflowActions || elements.overflowMenu.hidden) {
@@ -1379,6 +1445,11 @@ function bindEvents() {
 
     document.addEventListener("keydown", event => {
         if (event.key === "Escape") {
+            if (!elements.printDialog.hidden) {
+                closePrintDialog();
+                return;
+            }
+
             closeOverflowMenu();
         }
     });
@@ -1389,7 +1460,6 @@ async function bootstrap() {
     updateModeButtons();
     setSidebarCollapsed(false);
     updateToolbarState();
-    elements.printPreset.value = state.printPreset;
     syncPrintProfileInputs();
     elements.editorHost.hidden = true;
     elements.editorFallback.hidden = false;

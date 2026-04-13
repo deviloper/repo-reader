@@ -191,11 +191,11 @@ function formatTimestamp(date = new Date()) {
 function getPrintPreset(snapshot = {}) {
     const presetId = snapshot.preset && typeof snapshot.preset.id === "string" ? snapshot.preset.id : "public";
     const authorName = String(snapshot.authorName || "").trim();
-    const companyName = String(snapshot.companyName || "").trim();
+    const organizationName = String(snapshot.organizationName || snapshot.companyName || "").trim();
 
     const presets = {
         restricted: {
-            label: "Strettamente riservato",
+            label: "Riservato",
             shortLabel: "Riservato",
             note: "Documento strettamente riservato. Distribuzione vietata salvo autorizzazione espressa del titolare del documento.",
             accent: "#8b1e2d",
@@ -204,10 +204,10 @@ function getPrintPreset(snapshot = {}) {
             footer: "Classificazione massima: uso strettamente limitato.",
         },
         internal: {
-            label: "Solo interno ad una azienda",
+            label: "Interno",
             shortLabel: "Interno",
-            note: companyName
-                ? `Documento per uso interno a ${companyName}.`
+            note: organizationName
+                ? `Documento per uso interno a ${organizationName}.`
                 : "Documento destinato esclusivamente all'uso interno del personale aziendale.",
             accent: "#8a5b14",
             soft: "#fff7ed",
@@ -215,10 +215,10 @@ function getPrintPreset(snapshot = {}) {
             footer: "Non distribuire fuori dall'organizzazione.",
         },
         nda: {
-            label: "Partner sotto accordo di non divulgazione",
-            shortLabel: "NDA",
-            note: companyName
-                ? `Documento condiviso da ${companyName} con i partner e regolato da accordi di non divulgazione.`
+            label: "Partner",
+            shortLabel: "Partner",
+            note: organizationName
+                ? `Documento condiviso da ${organizationName} con i partner e regolato da accordi di non divulgazione.`
                 : "Condivisione consentita solo con partner coperti da accordo di non divulgazione.",
             accent: "#155eef",
             soft: "#eff4ff",
@@ -241,7 +241,7 @@ function getPrintPreset(snapshot = {}) {
     return {
         ...selectedPreset,
         authorName,
-        companyName,
+        organizationName,
     };
 }
 
@@ -581,7 +581,7 @@ function buildPrintableHtml(snapshot = {}) {
             ${watermark ? `<div class="watermark">${watermark}</div>` : ""}
             <div class="document-layer">
                 <header class="doc-header">
-                    <div class="doc-brand">Repo Reader</div>
+                    <div class="doc-brand">Documentazione tecnica</div>
                     <h1>${title}</h1>
                     <div class="doc-meta">
                         <span>Data esportazione ${generatedAt}</span>

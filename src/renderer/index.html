@@ -35,24 +35,6 @@
                             <button type="button" data-overflow-action="open-folder">Apri cartella di sistema</button>
                             <button type="button" data-overflow-action="open-code">Apri in VS Code</button>
                             <div class="action-menu-divider"></div>
-                            <label class="menu-field" for="print-preset">
-                                <span>Preset stampa</span>
-                                <select id="print-preset">
-                                    <option value="restricted">Strettamente riservato</option>
-                                    <option value="internal">Solo interno ad una azienda</option>
-                                    <option value="nda">Partner sotto NDA</option>
-                                    <option value="public" selected>Pubblico</option>
-                                </select>
-                            </label>
-                            <label class="menu-field" for="print-author-name">
-                                <span>Autore</span>
-                                <input id="print-author-name" type="text" placeholder="Nome e cognome">
-                            </label>
-                            <label class="menu-field" for="print-company-name">
-                                <span>Azienda</span>
-                                <input id="print-company-name" type="text" placeholder="Nome azienda">
-                            </label>
-                            <div class="action-menu-divider"></div>
                             <button type="button" data-print-mode="print">Stampa documento</button>
                             <button type="button" data-print-mode="pdf">Esporta PDF</button>
                         </div>
@@ -107,6 +89,51 @@
                 </article>
             </section>
         </main>
+    </div>
+
+    <div id="print-dialog" class="modal-shell" hidden>
+        <div class="modal-backdrop" data-modal-close="print"></div>
+        <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="print-dialog-title">
+            <header class="modal-head">
+                <div>
+                    <p class="eyebrow">Documentazione tecnica</p>
+                    <h2 id="print-dialog-title">Parametri esportazione</h2>
+                </div>
+                <button type="button" id="close-print-dialog" class="icon-button" aria-label="Chiudi finestra">Chiudi</button>
+            </header>
+
+            <div class="modal-body">
+                <label class="menu-field" for="print-dialog-preset">
+                    <span>Preset</span>
+                    <select id="print-dialog-preset">
+                        <option value="restricted">Riservato</option>
+                        <option value="internal">Interno</option>
+                        <option value="nda">Partner</option>
+                        <option value="public">Pubblico</option>
+                    </select>
+                </label>
+
+                <label class="menu-field" for="print-dialog-author-name">
+                    <span>Autore</span>
+                    <input id="print-dialog-author-name" type="text" placeholder="Nome e cognome">
+                </label>
+
+                <label class="checkbox-field" for="print-dialog-include-organization">
+                    <input id="print-dialog-include-organization" type="checkbox">
+                    <span>Inserisci organizzazione nel documento</span>
+                </label>
+
+                <label class="menu-field" for="print-dialog-organization-name">
+                    <span>Organizzazione</span>
+                    <input id="print-dialog-organization-name" type="text" placeholder="Nome organizzazione">
+                </label>
+            </div>
+
+            <footer class="modal-actions">
+                <button type="button" id="cancel-print-dialog">Annulla</button>
+                <button type="button" id="confirm-print-dialog">Conferma</button>
+            </footer>
+        </section>
     </div>
 
     <script src="../../node_modules/monaco-editor/min/vs/loader.js"></script>
