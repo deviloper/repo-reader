@@ -6,6 +6,10 @@ L’idea di partenza nasce dal mini applicativo già esistente nel repository so
 
 L’interfaccia nuova parte sempre in modalità visualizzazione. Quando serve modificare un file si passa alla modalità modifica con un toggle dedicato, così l’intera area di lavoro cambia contesto senza tenere preview ed editor divisi inutilmente.
 
+## Regola operativa per gli agenti GitHub Copilot
+
+Prima di fare qualunque modifica al repository, gli agenti GitHub Copilot devono leggere questo README per allinearsi su architettura, stato corrente e regole di lavoro. Se il README cambia in modo sostanziale, va riletto prima di intervenire di nuovo sul codice.
+
 ## Obiettivo
 
 L’obiettivo è distribuire repo-reader come strumento installabile nelle `devDependencies` di un progetto e avviabile con un comando breve da terminale. In prospettiva, il tool dovrà fornire:
@@ -115,6 +119,9 @@ La base iniziale ora include:
 5. un editor Monaco attivato solo in modalità modifica, con salvataggio diretto;
 6. apertura della cartella nel file manager e in VS Code quando disponibile;
 7. stampa del documento ed esportazione PDF tramite un menu compatto.
+8. una finestra di stampa/esportazione con frontespizio, indice automatico, numerazione dei paragrafi H2-H4 e intestazione/piè di pagina ripetuti;
+9. watermark di classificazione distribuito su ogni pagina del documento esportato;
+10. una dialog dedicata per i parametri di stampa, con autore e organizzazione gestiti separatamente.
 
 ## Direzione UI consigliata
 

@@ -269,8 +269,16 @@ function buildPrintableHtml(snapshot = {}) {
     const presetNote = escapeHtml(preset.note);
     const watermark = escapeHtml(preset.watermark);
     const authorName = escapeHtml(preset.authorName || "");
+    const watermarkPlacements = [
+        { top: "12%", left: "18%", rotate: "-26deg", size: "19pt" },
+        { top: "24%", left: "74%", rotate: "-27deg", size: "19pt" },
+        { top: "40%", left: "42%", rotate: "-26deg", size: "24pt" },
+        { top: "58%", left: "17%", rotate: "-27deg", size: "19pt" },
+        { top: "74%", left: "77%", rotate: "-26deg", size: "19pt" },
+        { top: "88%", left: "36%", rotate: "-27deg", size: "18pt" },
+    ];
     const watermarkMarkup = watermark
-        ? `<div class="page-watermark" aria-hidden="true">${Array.from({ length: 12 }, () => `<span>${watermark}</span>`).join("")}</div>`
+        ? watermarkPlacements.map((placement, index) => '<div class="page-watermark-item page-watermark-item-' + (index + 1) + '" style="top:' + placement.top + ';left:' + placement.left + ';--watermark-size:' + placement.size + ';transform:translate(-50%, -50%) rotate(' + placement.rotate + ');">' + watermark + '</div>').join("")
         : "";
 
     return `<!doctype html>
@@ -347,26 +355,25 @@ function buildPrintableHtml(snapshot = {}) {
 
         .page-watermark {
             position: absolute;
-            inset: -10mm;
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            grid-template-rows: repeat(4, minmax(0, 1fr));
-            align-items: center;
-            justify-items: center;
-            transform: rotate(-28deg) scale(1.1);
-            transform-origin: center;
+            inset: 0;
+            overflow: hidden;
             pointer-events: none;
             user-select: none;
             z-index: 0;
         }
 
-        .page-watermark span {
+        .page-watermark-item {
+            position: absolute;
             display: block;
-            font-size: 24pt;
+            font-size: var(--watermark-size, 20pt);
             font-weight: 700;
-            letter-spacing: 0.22em;
-            color: rgba(17, 24, 39, 0.08);
+            line-height: 1;
+            letter-spacing: 0.24em;
+            color: rgba(17, 24, 39, 0.075);
             white-space: nowrap;
+            opacity: 0.95;
+            mix-blend-mode: multiply;
+            transform-origin: center;
         }
 
         .cover-page .page-surface {
@@ -382,7 +389,7 @@ function buildPrintableHtml(snapshot = {}) {
             min-height: 228mm;
             padding: 22mm 18mm;
             border: 1.4pt solid var(--page-line);
-            background: rgba(255, 255, 255, 0.92);
+            background: rgba(255, 255, 255, 0.82);
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -526,7 +533,7 @@ function buildPrintableHtml(snapshot = {}) {
             right: 16mm;
             overflow: hidden;
             z-index: 1;
-            background: rgba(255, 255, 255, 0.94);
+            background: transparent;
         }
 
         .toc-title {
@@ -717,8 +724,8 @@ function buildPrintableHtml(snapshot = {}) {
                 margin: 0;
             }
 
-            .page-watermark span {
-                color: rgba(17, 24, 39, 0.07);
+            .page-watermark-item {
+                color: rgba(17, 24, 39, 0.065);
             }
         }
     </style>
