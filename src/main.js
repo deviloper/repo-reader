@@ -265,9 +265,11 @@ function buildPrintableHtml(snapshot = {}) {
     const preset = getPrintPreset(snapshot);
     const presetLabel = escapeHtml(preset.label);
     const presetNote = escapeHtml(preset.note);
-    const presetFooter = escapeHtml(preset.footer);
     const watermark = escapeHtml(preset.watermark);
     const authorName = escapeHtml(preset.authorName || "");
+    const watermarkMarkup = watermark
+        ? `<div class="page-watermark" aria-hidden="true">${Array.from({ length: 12 }, () => `<span>${watermark}</span>`).join("")}</div>`
+        : "";
 
     return `<!doctype html>
 <html lang="it">
@@ -278,18 +280,16 @@ function buildPrintableHtml(snapshot = {}) {
     <style>
         :root {
             color-scheme: light;
-            --page-bg: #ffffff;
-            --page-surface: #ffffff;
-            --page-border: #e4e7ec;
             --page-text: #1f2937;
             --page-muted: #667085;
             --page-accent: ${preset.accent};
             --page-soft: ${preset.soft};
+            --page-line: #d0d5dd;
         }
 
         @page {
             size: A4;
-            margin: 14mm;
+            margin: 0;
         }
 
         * {
@@ -308,185 +308,349 @@ function buildPrintableHtml(snapshot = {}) {
             font-family: "Aptos", "Segoe UI", "Calibri", sans-serif;
             color: var(--page-text);
             background: #ffffff;
-            line-height: 1.55;
+            line-height: 1.5;
             -webkit-font-smoothing: antialiased;
             text-rendering: optimizeLegibility;
         }
 
-        .page {
+        .print-document {
             width: 100%;
-            min-height: 100vh;
             margin: 0;
-            background: var(--page-surface);
-            border: 0;
-            border-radius: 0;
-            box-shadow: none;
+            background: #ffffff;
+        }
+
+        .print-page {
+            position: relative;
+            width: 210mm;
+            height: 297mm;
+            margin: 0 auto;
+            background: #ffffff;
             overflow: hidden;
-            position: relative;
+            break-after: page;
+            page-break-after: always;
         }
 
-        .page-inner {
-            padding: 18mm 20mm 20mm;
-            position: relative;
-            min-height: 100vh;
+        .print-page:last-child {
+            break-after: auto;
+            page-break-after: auto;
         }
 
-        .document-layer {
+        .page-surface {
             position: relative;
+            width: 100%;
+            height: 100%;
+            padding: 16mm 18mm;
             z-index: 1;
-            background: transparent;
         }
 
-        .watermark {
+        .page-watermark {
             position: absolute;
-            top: 48%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-24deg);
-            font-size: 40pt;
-            font-weight: 700;
-            letter-spacing: 0.18em;
-            color: rgba(17, 24, 39, 0.09);
-            white-space: nowrap;
+            inset: -10mm;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-rows: repeat(4, minmax(0, 1fr));
+            align-items: center;
+            justify-items: center;
+            transform: rotate(-28deg) scale(1.1);
+            transform-origin: center;
             pointer-events: none;
             user-select: none;
             z-index: 0;
         }
 
-        .doc-header {
-            display: grid;
-            gap: 6px;
-            padding-bottom: 18px;
-            margin-bottom: 22px;
-            border-bottom: 1px solid #d0d5dd;
-        }
-
-        .doc-submeta {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 16px;
-            color: var(--page-muted);
-            font-size: 11pt;
-        }
-
-        .doc-submeta strong {
-            color: #344054;
-        }
-
-        .doc-brand {
-            font-size: 10px;
+        .page-watermark span {
+            display: block;
+            font-size: 24pt;
             font-weight: 700;
-            letter-spacing: 0.16em;
+            letter-spacing: 0.22em;
+            color: rgba(17, 24, 39, 0.08);
+            white-space: nowrap;
+        }
+
+        .cover-page .page-surface {
+            padding: 22mm 20mm;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .cover-card {
+            position: relative;
+            width: 100%;
+            min-height: 228mm;
+            padding: 22mm 18mm;
+            border: 1.4pt solid var(--page-line);
+            background: rgba(255, 255, 255, 0.92);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 14mm;
+        }
+
+        .cover-brand {
+            font-size: 10pt;
+            font-weight: 700;
+            letter-spacing: 0.18em;
             text-transform: uppercase;
             color: var(--page-accent);
         }
 
-        .classification-bar {
-            display: flex;
+        .cover-title-block {
+            display: grid;
+            gap: 5mm;
+        }
+
+        .cover-title {
+            margin: 0;
+            font-size: 28pt;
+            font-weight: 700;
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            color: #111827;
+        }
+
+        .cover-note {
+            max-width: 140mm;
+            font-size: 12pt;
+            color: #475467;
+        }
+
+        .cover-meta {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10mm 12mm;
+            padding-top: 8mm;
+            border-top: 1px solid var(--page-line);
+        }
+
+        .cover-meta-item {
+            display: grid;
+            gap: 2mm;
+        }
+
+        .cover-meta-label {
+            font-size: 9pt;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--page-muted);
+        }
+
+        .cover-meta-value {
+            font-size: 13pt;
+            color: #111827;
+        }
+
+        .cover-meta-value.is-empty {
+            color: var(--page-muted);
+            font-style: italic;
+        }
+
+        .cover-classification {
+            display: inline-flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 16px;
-            padding: 10px 14px;
-            margin-bottom: 18px;
+            gap: 8px;
+            width: fit-content;
+            padding: 4mm 5mm;
             border-left: 4px solid var(--page-accent);
             background: var(--page-soft);
         }
 
-        .classification-title {
-            font-size: 10.5pt;
+        .cover-classification-title {
+            font-size: 11pt;
             font-weight: 700;
             color: #111827;
         }
 
-        .classification-note {
+        .cover-classification-note {
             font-size: 10pt;
             color: #475467;
         }
 
-        h1 {
-            margin: 0;
-            font-size: 26pt;
+        .standard-page .page-header,
+        .standard-page .page-footer {
+            position: absolute;
+            left: 16mm;
+            right: 16mm;
+            display: grid;
+            gap: 2mm;
+            z-index: 1;
+        }
+
+        .standard-page .page-header {
+            top: 12mm;
+            padding-bottom: 3mm;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: end;
+            border-bottom: 1px solid var(--page-line);
+        }
+
+        .standard-page .page-footer {
+            bottom: 11mm;
+            padding-top: 3mm;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            align-items: start;
+            border-top: 1px solid var(--page-line);
+        }
+
+        .header-title {
+            font-size: 10pt;
             font-weight: 700;
-            line-height: 1.12;
-            letter-spacing: -0.01em;
+            color: #111827;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .header-note,
+        .footer-item {
+            font-size: 9pt;
+            color: #475467;
+        }
+
+        .footer-item.is-center {
+            text-align: center;
+        }
+
+        .footer-item.is-right {
+            text-align: right;
+        }
+
+        .page-body {
+            position: absolute;
+            top: 28mm;
+            bottom: 24mm;
+            left: 16mm;
+            right: 16mm;
+            overflow: hidden;
+            z-index: 1;
+            background: rgba(255, 255, 255, 0.94);
+        }
+
+        .toc-title {
+            margin: 0 0 8mm;
+            font-size: 22pt;
+            font-weight: 700;
             color: #111827;
         }
 
-        .doc-meta {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
+        .toc-subtitle {
+            margin: 0 0 8mm;
+            font-size: 10pt;
             color: var(--page-muted);
-            font-size: 12px;
         }
 
-        .doc-meta span {
-            padding: 4px 0;
-            border-radius: 0;
-            background: var(--page-soft);
-            border: 0;
-            background: transparent;
+        .toc-list {
+            display: grid;
+            gap: 3.2mm;
         }
 
-        .doc-content :is(h2, h3, h4, h5, h6, p, ul, ol, blockquote, pre, table) {
+        .toc-row {
+            display: grid;
+            grid-template-columns: auto auto minmax(0, 1fr) auto;
+            gap: 3mm;
+            align-items: baseline;
+            font-size: 11pt;
+            color: #1f2937;
+        }
+
+        .toc-row[data-level="3"] {
+            padding-left: 6mm;
+            font-size: 10.5pt;
+        }
+
+        .toc-row[data-level="4"] {
+            padding-left: 12mm;
+            font-size: 10pt;
+        }
+
+        .toc-number,
+        .toc-page {
+            font-weight: 700;
+            color: #111827;
+        }
+
+        .toc-leader {
+            border-bottom: 1px dotted #98a2b3;
+            transform: translateY(-1.5mm);
+        }
+
+        .document-content :is(h2, h3, h4, h5, h6, p, ul, ol, blockquote, pre, table) {
             margin-top: 0;
         }
 
-        .doc-content h2 {
-            margin: 1.8em 0 0.55em;
+        .document-content h2 {
+            margin: 0 0 4.5mm;
             padding-bottom: 0.16em;
             font-size: 16pt;
             font-weight: 700;
             color: #111827;
-            border-bottom: 1px solid #d0d5dd;
+            border-bottom: 1px solid var(--page-line);
         }
 
-        .doc-content h3 {
-            margin: 1.45em 0 0.42em;
+        .document-content h3 {
+            margin: 0 0 3.5mm;
             font-size: 13pt;
             font-weight: 700;
             color: #1f2937;
         }
 
-        .doc-content h4 {
-            margin: 1.2em 0 0.4em;
+        .document-content h4 {
+            margin: 0 0 3mm;
             font-size: 11.5pt;
             font-weight: 700;
             color: #344054;
         }
 
-        .doc-content h5,
-        .doc-content h6 {
-            margin: 1.1em 0 0.35em;
+        .document-content h5,
+        .document-content h6 {
+            margin: 0 0 3mm;
             font-size: 11pt;
             font-weight: 700;
             color: #475467;
         }
 
-        .doc-content p,
-        .doc-content li,
-        .doc-content blockquote {
+        .heading-number {
+            display: inline-block;
+            min-width: 18mm;
+            margin-right: 1mm;
+            color: var(--page-accent);
+        }
+
+        .flow-unit {
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
+        .flow-unit + .flow-unit {
+            margin-top: 2mm;
+        }
+
+        .document-content p,
+        .document-content li,
+        .document-content blockquote {
             font-size: 11pt;
             color: #2b3444;
         }
 
-        .doc-content p,
-        .doc-content ul,
-        .doc-content ol,
-        .doc-content blockquote,
-        .doc-content pre {
-            margin-bottom: 12px;
+        .document-content p,
+        .document-content ul,
+        .document-content ol,
+        .document-content blockquote,
+        .document-content pre {
+            margin-bottom: 4mm;
         }
 
-        .doc-content ul,
-        .doc-content ol {
+        .document-content ul,
+        .document-content ol {
             padding-left: 22px;
         }
 
-        .doc-content li {
+        .document-content li {
             margin-bottom: 6px;
         }
 
-        .doc-content blockquote {
+        .document-content blockquote {
             margin-left: 0;
             padding: 12px 16px;
             border-left: 3px solid #98a2b3;
@@ -494,9 +658,9 @@ function buildPrintableHtml(snapshot = {}) {
             background: #f7f7f8;
         }
 
-        .doc-content pre {
+        .document-content pre {
             padding: 14px 16px;
-            border: 1px solid var(--page-border);
+            border: 1px solid #e4e7ec;
             border-radius: 14px;
             background: #f7f7f8;
             white-space: pre-wrap;
@@ -504,7 +668,7 @@ function buildPrintableHtml(snapshot = {}) {
             overflow: hidden;
         }
 
-        .doc-content code {
+        .document-content code {
             font-family: "Cascadia Mono", "Consolas", monospace;
             font-size: 0.95em;
             background: #f2f4f7;
@@ -513,32 +677,24 @@ function buildPrintableHtml(snapshot = {}) {
             border-radius: 6px;
         }
 
-        .doc-content pre code {
+        .document-content pre code {
             padding: 0;
             background: transparent;
             color: inherit;
             white-space: pre-wrap;
         }
 
-        .doc-content a {
+        .document-content a {
             color: var(--page-accent);
             text-decoration: underline;
             text-underline-offset: 2px;
         }
 
-        .doc-content strong {
+        .document-content strong {
             color: #111827;
         }
 
-        .doc-footer {
-            margin-top: 26px;
-            padding-top: 12px;
-            border-top: 1px solid #d0d5dd;
-            font-size: 9.5pt;
-            color: #667085;
-        }
-
-        .doc-content hr {
+        .document-content hr {
             border: 0;
             height: 1px;
             margin: 18px 0;
@@ -555,50 +711,289 @@ function buildPrintableHtml(snapshot = {}) {
                 background: #ffffff;
             }
 
-            .page {
-                width: auto;
-                min-height: auto;
+            .print-page {
                 margin: 0;
-                border: 0;
-                border-radius: 0;
-                box-shadow: none;
             }
 
-            .page-inner {
-                padding: 0;
-                min-height: auto;
-            }
-
-            .watermark {
-                color: rgba(17, 24, 39, 0.08);
+            .page-watermark span {
+                color: rgba(17, 24, 39, 0.07);
             }
         }
     </style>
 </head>
 <body>
-    <article class="page">
-        <div class="page-inner">
-            ${watermark ? `<div class="watermark">${watermark}</div>` : ""}
-            <div class="document-layer">
-                <header class="doc-header">
-                    <div class="doc-brand">Documentazione tecnica</div>
-                    <h1>${title}</h1>
-                    <div class="doc-meta">
-                        <span>Data esportazione ${generatedAt}</span>
+    <main class="print-document">
+        <section class="print-page cover-page">
+            ${watermarkMarkup}
+            <div class="page-surface">
+                <article class="cover-card">
+                    <div class="cover-brand">Documentazione tecnica</div>
+                    <div class="cover-title-block">
+                        <h1 class="cover-title">${title}</h1>
+                        <div class="cover-note">${presetNote}</div>
                     </div>
-                    ${authorName ? `<div class="doc-submeta"><span><strong>Autore:</strong> ${authorName}</span></div>` : ""}
-                </header>
-                <section class="classification-bar">
-                    <div class="classification-title">${presetLabel}</div>
-                    <div class="classification-note">${presetNote}</div>
-                </section>
-                <main class="doc-content">
-                    ${contentHtml}
-                </main>
-                <footer class="doc-footer">${presetFooter}</footer>
+                    <div class="cover-classification">
+                        <div class="cover-classification-title">${presetLabel}</div>
+                        <div class="cover-classification-note">Classificazione del documento</div>
+                    </div>
+                    <div class="cover-meta">
+                        <div class="cover-meta-item">
+                            <div class="cover-meta-label">Autore</div>
+                            <div class="cover-meta-value${authorName ? "" : " is-empty"}">${authorName || "Non indicato"}</div>
+                        </div>
+                        <div class="cover-meta-item">
+                            <div class="cover-meta-label">Data esportazione</div>
+                            <div class="cover-meta-value">${generatedAt}</div>
+                        </div>
+                    </div>
+                </article>
             </div>
-        </div>
-    </article>
+        </section>
+
+        <section class="print-page standard-page toc-page">
+            ${watermarkMarkup}
+            <header class="page-header">
+                <div class="header-title">${title}</div>
+                <div class="header-note">${presetLabel}</div>
+            </header>
+            <div class="page-body">
+                <h2 class="toc-title">Indice</h2>
+                <p class="toc-subtitle">Sezioni numerate del documento, livelli da H2 a H4.</p>
+                <div id="toc-body" class="toc-list"></div>
+            </div>
+            <footer class="page-footer">
+                <div class="footer-item">Autore: ${authorName || "Non indicato"}</div>
+                <div class="footer-item is-center">Data esportazione: ${generatedAt}</div>
+                <div class="footer-item is-right">Pagina <span data-page-current></span> / <span data-page-total></span></div>
+            </footer>
+        </section>
+
+        <section id="content-pages"></section>
+    </main>
+
+    <template id="standard-page-template">
+        <section class="print-page standard-page">
+            ${watermarkMarkup}
+            <header class="page-header">
+                <div class="header-title">${title}</div>
+                <div class="header-note">${presetLabel}</div>
+            </header>
+            <div class="page-body document-content"></div>
+            <footer class="page-footer">
+                <div class="footer-item">Autore: ${authorName || "Non indicato"}</div>
+                <div class="footer-item is-center">Data esportazione: ${generatedAt}</div>
+                <div class="footer-item is-right">Pagina <span data-page-current></span> / <span data-page-total></span></div>
+            </footer>
+        </section>
+    </template>
+
+    <template id="content-template">${contentHtml}</template>
+
+    <script>
+        (() => {
+            const contentTemplate = document.getElementById("content-template");
+            const contentPages = document.getElementById("content-pages");
+            const tocBody = document.getElementById("toc-body");
+            const sourceContainer = document.createElement("div");
+
+            sourceContainer.append(contentTemplate.content.cloneNode(true));
+            removePrimaryHeading(sourceContainer);
+
+            const tocEntries = numberDocumentHeadings(sourceContainer);
+            const units = createFlowUnits(sourceContainer);
+            const pageMap = paginateUnits(units, contentPages);
+
+            renderToc(tocEntries, pageMap, tocBody);
+            updatePageNumbers();
+
+            function removePrimaryHeading(container) {
+                const firstElement = Array.from(container.children).find(node => node.textContent.trim());
+
+                if (firstElement && firstElement.tagName === "H1") {
+                    firstElement.remove();
+                }
+
+                container.querySelectorAll("h1").forEach(node => node.remove());
+            }
+
+            function numberDocumentHeadings(container) {
+                const counters = [0, 0, 0];
+                const entries = [];
+                let headingIndex = 0;
+
+                container.querySelectorAll("h2, h3, h4").forEach(heading => {
+                    const level = Number(heading.tagName.slice(1));
+
+                    if (level === 2) {
+                        counters[0] += 1;
+                        counters[1] = 0;
+                        counters[2] = 0;
+                    } else if (level === 3) {
+                        if (!counters[0]) {
+                            counters[0] = 1;
+                        }
+
+                        counters[1] += 1;
+                        counters[2] = 0;
+                    } else if (level === 4) {
+                        if (!counters[0]) {
+                            counters[0] = 1;
+                        }
+
+                        if (!counters[1]) {
+                            counters[1] = 1;
+                        }
+
+                        counters[2] += 1;
+                    }
+
+                    const prefix = counters.slice(0, level - 1).filter(Boolean).join(".");
+                    const headingId = "section-" + headingIndex;
+                    const originalHtml = heading.innerHTML;
+                    const headingTextProbe = document.createElement("div");
+
+                    headingTextProbe.innerHTML = originalHtml;
+
+                    heading.id = headingId;
+                    heading.dataset.headingId = headingId;
+                    heading.innerHTML = "";
+
+                    const numberNode = document.createElement("span");
+                    numberNode.className = "heading-number";
+                    numberNode.textContent = prefix + " ";
+
+                    const textNode = document.createElement("span");
+                    textNode.className = "heading-text";
+                    textNode.innerHTML = originalHtml;
+
+                    heading.append(numberNode, textNode);
+                    entries.push({
+                        id: headingId,
+                        level,
+                        number: prefix,
+                        text: headingTextProbe.textContent.trim(),
+                    });
+                    headingIndex += 1;
+                });
+
+                return entries;
+            }
+
+            function createFlowUnits(container) {
+                const units = [];
+                const nodes = Array.from(container.children);
+
+                for (let index = 0; index < nodes.length; index += 1) {
+                    const currentNode = nodes[index];
+                    const unit = document.createElement("section");
+                    unit.className = "flow-unit";
+                    unit.append(currentNode);
+
+                    const currentTag = currentNode.tagName || "";
+                    const nextNode = nodes[index + 1];
+                    const isHeading = /^H[2-6]$/.test(currentTag);
+                    const nextIsHeading = nextNode ? /^H[1-6]$/.test(nextNode.tagName || "") : false;
+
+                    if (isHeading && nextNode && !nextIsHeading) {
+                        unit.append(nextNode);
+                        index += 1;
+                    }
+
+                    units.push(unit);
+                }
+
+                return units;
+            }
+
+            function createStandardPage() {
+                return document.getElementById("standard-page-template").content.firstElementChild.cloneNode(true);
+            }
+
+            function paginateUnits(units, mountNode) {
+                const pageLookup = new Map();
+                let currentPage = createStandardPage();
+                let currentBody = currentPage.querySelector(".page-body");
+
+                mountNode.append(currentPage);
+
+                for (const unit of units) {
+                    currentBody.append(unit);
+
+                    if (currentBody.scrollHeight > currentBody.clientHeight + 2 && currentBody.children.length > 1) {
+                        currentBody.removeChild(unit);
+                        currentPage = createStandardPage();
+                        currentBody = currentPage.querySelector(".page-body");
+                        mountNode.append(currentPage);
+                        currentBody.append(unit);
+                    }
+
+                    const pageNumber = 2 + mountNode.children.length;
+                    unit.querySelectorAll("[data-heading-id]").forEach(heading => {
+                        pageLookup.set(heading.dataset.headingId, pageNumber);
+                    });
+                }
+
+                return pageLookup;
+            }
+
+            function renderToc(entries, pageLookup, mountNode) {
+                mountNode.innerHTML = "";
+
+                if (!entries.length) {
+                    const emptyState = document.createElement("p");
+                    emptyState.className = "print-empty";
+                    emptyState.textContent = "Nessuna sezione H2-H4 disponibile per l'indice.";
+                    mountNode.append(emptyState);
+                    return;
+                }
+
+                const fragment = document.createDocumentFragment();
+
+                for (const entry of entries) {
+                    const row = document.createElement("div");
+                    row.className = "toc-row";
+                    row.dataset.level = String(entry.level);
+
+                    const number = document.createElement("span");
+                    number.className = "toc-number";
+                    number.textContent = entry.number;
+
+                    const label = document.createElement("span");
+                    label.className = "toc-label";
+                    label.textContent = entry.text;
+
+                    const leader = document.createElement("span");
+                    leader.className = "toc-leader";
+
+                    const page = document.createElement("span");
+                    page.className = "toc-page";
+                    page.textContent = String(pageLookup.get(entry.id) || "-");
+
+                    row.append(number, label, leader, page);
+                    fragment.append(row);
+                }
+
+                mountNode.append(fragment);
+            }
+
+            function updatePageNumbers() {
+                const pages = Array.from(document.querySelectorAll(".print-page"));
+                const total = pages.length;
+
+                pages.forEach((page, index) => {
+                    const current = index + 1;
+
+                    page.querySelectorAll("[data-page-current]").forEach(node => {
+                        node.textContent = String(current);
+                    });
+
+                    page.querySelectorAll("[data-page-total]").forEach(node => {
+                        node.textContent = String(total);
+                    });
+                });
+            }
+        })();
+    </script>
 </body>
 </html>`;
 }
