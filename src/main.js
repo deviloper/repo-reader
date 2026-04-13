@@ -5,6 +5,8 @@ const { spawn } = require("child_process");
 
 let currentRoot = path.resolve(process.env.REPO_READER_ROOT || process.cwd());
 
+const APP_ICON_PATH = path.join(__dirname, "renderer", "favicon.png");
+
 function getRoot() {
     return currentRoot;
 }
@@ -1076,6 +1078,7 @@ function createPrintWindow(snapshot) {
         height: 1600,
         backgroundColor: "#ffffff",
         autoHideMenuBar: true,
+        icon: APP_ICON_PATH,
         webPreferences: {
             contextIsolation: true,
             nodeIntegration: false,
@@ -1237,6 +1240,7 @@ function createWindow() {
         minHeight: 780,
         backgroundColor: "#0b1020",
         title: "Repo Reader",
+        icon: APP_ICON_PATH,
         webPreferences: {
             preload: path.join(__dirname, "preload.js"),
             contextIsolation: true,
@@ -1252,6 +1256,10 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+    if (process.platform === "win32") {
+        app.setAppUserModelId("com.github.deviloper.repo-reader");
+    }
+
     ipcMain.handle("repo:get-bootstrap", () => ({
         root: getRoot(),
         defaultPath: getDefaultPath(),
