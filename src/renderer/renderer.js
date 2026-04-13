@@ -107,6 +107,8 @@ const PRINT_PRESETS = {
     },
 };
 
+const PRINT_PROFILE_STORAGE_KEY = "repo-reader.print-profile";
+
 const state = {
     root: "",
     currentPath: "",
@@ -123,6 +125,10 @@ const state = {
     mode: "view",
     sidebarCollapsed: false,
     printPreset: "public",
+    printProfile: {
+        authorName: "",
+        companyName: "",
+    },
     editorKind: "fallback",
     monaco: null,
     monacoLoadPromise: null,
@@ -152,6 +158,8 @@ const elements = {
     overflowButton: document.getElementById("overflow-button"),
     overflowMenu: document.getElementById("overflow-menu"),
     printPreset: document.getElementById("print-preset"),
+    printAuthorName: document.getElementById("print-author-name"),
+    printCompanyName: document.getElementById("print-company-name"),
     overflowMenuPrint: document.querySelector('[data-print-mode="print"]'),
     overflowMenuPdf: document.querySelector('[data-print-mode="pdf"]'),
     status: document.getElementById("status"),
@@ -160,6 +168,42 @@ const elements = {
 
 function getSelectedPrintPreset() {
     return PRINT_PRESETS[state.printPreset] || PRINT_PRESETS.public;
+}
+
+function loadPrintProfile() {
+    try {
+        const rawValue = window.localStorage.getItem(PRINT_PROFILE_STORAGE_KEY);
+
+        if (!rawValue) {
+            return;
+        }
+
+        const parsedValue = JSON.parse(rawValue);
+        state.printProfile.authorName = String(parsedValue.authorName || "").trim();
+        state.printProfile.companyName = String(parsedValue.companyName || "").trim();
+    } catch {
+        state.printProfile.authorName = "";
+        state.printProfile.companyName = "";
+    }
+}
+
+function persistPrintProfile() {
+    try {
+        window.localStorage.setItem(PRINT_PROFILE_STORAGE_KEY, JSON.stringify(state.printProfile));
+    } catch {
+        // Ignore storage errors and keep the in-memory values.
+    }
+}
+
+function syncPrintProfileInputs() {
+    elements.printAuthorName.value = state.printProfile.authorName;
+    elements.printCompanyName.value = state.printProfile.companyName;
+}
+
+function updatePrintProfileFromInputs() {
+    state.printProfile.authorName = elements.printAuthorName.value.trim();
+    state.printProfile.companyName = elements.printCompanyName.value.trim();
+    persistPrintProfile();
 }
 
 function escapeHtml(text) {
@@ -584,6 +628,20 @@ function setSidebarCollapsed(collapsed) {
     }
 }
 
+function validatePrintProfile() {
+    const preset = getSelectedPrintPreset();
+
+    if (!state.printProfile.authorName) {
+        return "Inserisci nome e cognome dell'autore prima di stampare.";
+    }
+
+    if ((preset.id === "internal" || preset.id === "nda") && !state.printProfile.companyName) {
+        return "Inserisci il nome dell'azienda per il preset di stampa selezionato.";
+    }
+
+    return "";
+}
+
 async function applyWorkspaceState(workspaceState, statusMessage) {
     if (!workspaceState || !workspaceState.root) {
         return;
@@ -630,14 +688,23 @@ function buildPrintSnapshot() {
     return {
         title: getBaseName(state.selectedPath) || "Documento",
         sourcePath: state.selectedPath,
-        documentKind: getFileTypeLabel(state.selectedPath, state.selectedType),
-        mode: state.mode,
         preset,
+        authorName: state.printProfile.authorName,
+        companyName: state.printProfile.companyName,
         html: renderFilePreview(getPreviewContent(), state.selectedPath),
     };
 }
 
 async function printCurrentDocument(printMode) {
+    updatePrintProfileFromInputs();
+
+    const validationMessage = validatePrintProfile();
+
+    if (validationMessage) {
+        setStatus(validationMessage, "error");
+        return;
+    }
+
     const snapshot = buildPrintSnapshot();
 
     if (!snapshot) {
@@ -1223,6 +1290,9 @@ function bindEvents() {
         setStatus(`Preset stampa: ${getSelectedPrintPreset().label}.`);
     });
 
+    elements.printAuthorName.addEventListener("input", updatePrintProfileFromInputs);
+    elements.printCompanyName.addEventListener("input", updatePrintProfileFromInputs);
+
     elements.overflowButton.addEventListener("click", event => {
         event.preventDefault();
         toggleOverflowMenu();
@@ -1315,10 +1385,12 @@ function bindEvents() {
 }
 
 async function bootstrap() {
+    loadPrintProfile();
     updateModeButtons();
     setSidebarCollapsed(false);
     updateToolbarState();
     elements.printPreset.value = state.printPreset;
+    syncPrintProfileInputs();
     elements.editorHost.hidden = true;
     elements.editorFallback.hidden = false;
     bindEvents();

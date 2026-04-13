@@ -190,12 +190,14 @@ function formatTimestamp(date = new Date()) {
 
 function getPrintPreset(snapshot = {}) {
     const presetId = snapshot.preset && typeof snapshot.preset.id === "string" ? snapshot.preset.id : "public";
+    const authorName = String(snapshot.authorName || "").trim();
+    const companyName = String(snapshot.companyName || "").trim();
 
     const presets = {
         restricted: {
             label: "Strettamente riservato",
             shortLabel: "Riservato",
-            note: "Distribuzione vietata salvo autorizzazione espressa del titolare del documento.",
+            note: "Documento strettamente riservato. Distribuzione vietata salvo autorizzazione espressa del titolare del documento.",
             accent: "#8b1e2d",
             soft: "#fdf2f3",
             watermark: "STRETTAMENTE RISERVATO",
@@ -204,7 +206,9 @@ function getPrintPreset(snapshot = {}) {
         internal: {
             label: "Solo interno ad una azienda",
             shortLabel: "Interno",
-            note: "Documento destinato esclusivamente all'uso interno del personale aziendale.",
+            note: companyName
+                ? `Documento per uso interno a ${companyName}.`
+                : "Documento destinato esclusivamente all'uso interno del personale aziendale.",
             accent: "#8a5b14",
             soft: "#fff7ed",
             watermark: "USO INTERNO",
@@ -213,7 +217,9 @@ function getPrintPreset(snapshot = {}) {
         nda: {
             label: "Partner sotto accordo di non divulgazione",
             shortLabel: "NDA",
-            note: "Condivisione consentita solo con partner coperti da accordo di non divulgazione.",
+            note: companyName
+                ? `Documento condiviso da ${companyName} con i partner e regolato da accordi di non divulgazione.`
+                : "Condivisione consentita solo con partner coperti da accordo di non divulgazione.",
             accent: "#155eef",
             soft: "#eff4ff",
             watermark: "NDA",
@@ -230,7 +236,13 @@ function getPrintPreset(snapshot = {}) {
         },
     };
 
-    return presets[presetId] || presets.public;
+    const selectedPreset = presets[presetId] || presets.public;
+
+    return {
+        ...selectedPreset,
+        authorName,
+        companyName,
+    };
 }
 
 function getPrintableBaseName(snapshot = {}) {
@@ -247,10 +259,7 @@ function getPrintableBaseName(snapshot = {}) {
 }
 
 function buildPrintableHtml(snapshot = {}) {
-    const title = escapeHtml(snapshot.title || "Documento");
-    const sourcePath = escapeHtml(snapshot.sourcePath || "");
-    const documentKind = escapeHtml(snapshot.documentKind || "Documento");
-    const modeLabel = escapeHtml(snapshot.mode === "edit" ? "Modifica" : "Visualizzazione");
+    const title = escapeHtml(getPrintableBaseName(snapshot) || "Documento");
     const generatedAt = escapeHtml(formatTimestamp());
     const contentHtml = snapshot.html || '<p class="print-empty">Nessun contenuto disponibile.</p>';
     const preset = getPrintPreset(snapshot);
@@ -258,6 +267,7 @@ function buildPrintableHtml(snapshot = {}) {
     const presetNote = escapeHtml(preset.note);
     const presetFooter = escapeHtml(preset.footer);
     const watermark = escapeHtml(preset.watermark);
+    const authorName = escapeHtml(preset.authorName || "");
 
     return `<!doctype html>
 <html lang="it">
@@ -348,6 +358,18 @@ function buildPrintableHtml(snapshot = {}) {
             padding-bottom: 18px;
             margin-bottom: 22px;
             border-bottom: 1px solid #d0d5dd;
+        }
+
+        .doc-submeta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            color: var(--page-muted);
+            font-size: 11pt;
+        }
+
+        .doc-submeta strong {
+            color: #344054;
         }
 
         .doc-brand {
@@ -562,11 +584,9 @@ function buildPrintableHtml(snapshot = {}) {
                     <div class="doc-brand">Repo Reader</div>
                     <h1>${title}</h1>
                     <div class="doc-meta">
-                        <span>${documentKind}</span>
-                        <span>${modeLabel}</span>
-                        <span>${generatedAt}</span>
-                        ${sourcePath ? `<span>${sourcePath}</span>` : ""}
+                        <span>Data esportazione ${generatedAt}</span>
                     </div>
+                    ${authorName ? `<div class="doc-submeta"><span><strong>Autore:</strong> ${authorName}</span></div>` : ""}
                 </header>
                 <section class="classification-bar">
                     <div class="classification-title">${presetLabel}</div>
