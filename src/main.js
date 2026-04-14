@@ -685,6 +685,33 @@ function buildPrintableHtml(snapshot = {}) {
             -webkit-box-decoration-break: clone;
         }
 
+        .document-content pre.code-block-fragment {
+            margin: 0;
+            border-radius: 0;
+            border-top: 0;
+            border-bottom: 0;
+            background: #f7f7f8;
+        }
+
+        .document-content pre.code-block-fragment.is-first {
+            border-top: 1px solid #e4e7ec;
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
+            background: linear-gradient(180deg, #eef2f7 0%, #f7f7f8 14px, #f7f7f8 100%);
+        }
+
+        .document-content pre.code-block-fragment.is-last {
+            border-bottom: 1px solid #e4e7ec;
+            border-bottom-left-radius: 12px;
+            border-bottom-right-radius: 12px;
+            background: linear-gradient(180deg, #f7f7f8 0%, #f7f7f8 calc(100% - 14px), #eef2f7 100%);
+        }
+
+        .document-content pre.code-block-fragment:not(.is-first):not(.is-last) {
+            padding-top: 10px;
+            padding-bottom: 10px;
+        }
+
         .document-content code {
             font-family: "Cascadia Mono", "Consolas", monospace;
             font-size: 0.95em;
@@ -911,14 +938,14 @@ function buildPrintableHtml(snapshot = {}) {
                     const nextNode = nodes[index + 1];
                     const isHeading = /^H[2-6]$/.test(currentTag);
                     const nextIsHeading = nextNode ? /^H[1-6]$/.test(nextNode.tagName || "") : false;
-                    const nextIsCodeBlock = nextNode instanceof HTMLElement && nextNode.matches("pre.code-block");
+                    const nextIsCodeBlock = nextNode instanceof HTMLElement && nextNode.matches("pre.code-block, pre.code-block-fragment");
 
                     if (isHeading && nextNode && !nextIsHeading && !nextIsCodeBlock) {
                         unit.append(nextNode);
                         index += 1;
                     }
 
-                    if (currentNode instanceof HTMLElement && currentNode.matches("pre.code-block")) {
+                    if (currentNode instanceof HTMLElement && currentNode.matches("pre.code-block, pre.code-block-fragment")) {
                         unit.classList.add("flow-unit-code");
                     }
 

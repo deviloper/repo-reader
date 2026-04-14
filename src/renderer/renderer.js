@@ -540,6 +540,32 @@ function renderPlainPreview(content) {
     return `<pre class="code-block md-block"><code>${escapeHtml(content || "")}</code></pre>`;
 }
 
+function renderPrintablePlainPreview(content, maxLinesPerFragment = 22) {
+    const lines = String(content || "").replace(/\r\n/g, "\n").split("\n");
+
+    if (!lines.length) {
+        return '<p class="empty-markdown">Nessun contenuto.</p>';
+    }
+
+    const blocks = [];
+    const totalFragments = Math.max(1, Math.ceil(lines.length / maxLinesPerFragment));
+
+    for (let index = 0; index < totalFragments; index += 1) {
+        const start = index * maxLinesPerFragment;
+        const end = start + maxLinesPerFragment;
+        const className = [
+            "code-block",
+            "code-block-fragment",
+            index === 0 ? "is-first" : "",
+            index === totalFragments - 1 ? "is-last" : "",
+        ].filter(Boolean).join(" ");
+
+        blocks.push(`<pre class="${className}"><code>${escapeHtml(lines.slice(start, end).join("\n"))}</code></pre>`);
+    }
+
+    return blocks.join("\n");
+}
+
 function renderJsonPreview(content) {
     try {
         return renderPlainPreview(JSON.stringify(JSON.parse(content), null, 2));
@@ -560,6 +586,24 @@ function renderFilePreview(content, filePath) {
     }
 
     return renderPlainPreview(content);
+}
+
+function renderPrintableFilePreview(content, filePath) {
+    const extension = getExtension(filePath);
+
+    if (MARKDOWN_EXTENSIONS.has(extension)) {
+        return renderMarkdown(content);
+    }
+
+    if (extension === ".json") {
+        try {
+            return renderPrintablePlainPreview(JSON.stringify(JSON.parse(content), null, 2));
+        } catch {
+            return renderPrintablePlainPreview(content);
+        }
+    }
+
+    return renderPrintablePlainPreview(content);
 }
 
 function setStatus(message, tone = "") {
@@ -745,7 +789,7 @@ function buildPrintSnapshot() {
         preset,
         authorName: state.printProfile.authorName,
         organizationName: state.printProfile.includeOrganization ? state.printProfile.organizationName : "",
-        html: renderFilePreview(getPreviewContent(), state.selectedPath),
+        html: renderPrintableFilePreview(getPreviewContent(), state.selectedPath),
     };
 }
 
