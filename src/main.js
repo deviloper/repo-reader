@@ -268,6 +268,7 @@ function buildPrintableHtml(snapshot = {}) {
     const presetNote = escapeHtml(preset.note);
     const watermark = escapeHtml(preset.watermark);
     const authorName = escapeHtml(preset.authorName || "");
+    const organizationName = escapeHtml(preset.organizationName || "");
     const watermarkPlacements = [
         { top: "12%", left: "18%", rotate: "-26deg", size: "19pt" },
         { top: "24%", left: "74%", rotate: "-27deg", size: "19pt" },
@@ -553,6 +554,50 @@ function buildPrintableHtml(snapshot = {}) {
             gap: 3.2mm;
         }
 
+        .export-summary {
+            display: grid;
+            gap: 7mm;
+            align-content: start;
+        }
+
+        .export-summary-title {
+            margin: 0;
+            font-size: 22pt;
+            font-weight: 700;
+            color: #111827;
+        }
+
+        .export-summary-text {
+            margin: 0;
+            font-size: 10.5pt;
+            color: var(--page-muted);
+        }
+
+        .export-summary-grid {
+            display: grid;
+            gap: 5mm;
+        }
+
+        .export-summary-item {
+            display: grid;
+            gap: 1.8mm;
+            padding: 4mm 0;
+            border-bottom: 1px solid #e4e7ec;
+        }
+
+        .export-summary-label {
+            font-size: 9pt;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--page-muted);
+        }
+
+        .export-summary-value {
+            font-size: 12pt;
+            color: #111827;
+        }
+
         .toc-row {
             display: grid;
             grid-template-columns: auto auto minmax(0, 1fr) auto;
@@ -814,6 +859,39 @@ function buildPrintableHtml(snapshot = {}) {
         </section>
 
         <section id="content-pages"></section>
+
+        <section class="print-page standard-page export-summary-page">
+            ${watermarkMarkup}
+            <header class="page-header">
+                <div class="header-title">${title}</div>
+                <div class="header-note">${presetLabel}</div>
+            </header>
+            <div class="page-body export-summary">
+                <h2 class="export-summary-title">Dati esportazione</h2>
+                <p class="export-summary-text">Riepilogo finale dei metadati associati al documento esportato.</p>
+                <div class="export-summary-grid">
+                    <div class="export-summary-item">
+                        <div class="export-summary-label">Data esportazione</div>
+                        <div class="export-summary-value">${generatedAt}</div>
+                    </div>
+                    ${authorName ? `
+                    <div class="export-summary-item">
+                        <div class="export-summary-label">Autore</div>
+                        <div class="export-summary-value">${authorName}</div>
+                    </div>` : ""}
+                    ${organizationName ? `
+                    <div class="export-summary-item">
+                        <div class="export-summary-label">Organizzazione</div>
+                        <div class="export-summary-value">${organizationName}</div>
+                    </div>` : ""}
+                </div>
+            </div>
+            <footer class="page-footer">
+                <div class="footer-item">Autore: ${authorName || "Non indicato"}</div>
+                <div class="footer-item is-center">Data esportazione: ${generatedAt}</div>
+                <div class="footer-item is-right">Pagina <span data-page-current></span> / <span data-page-total></span></div>
+            </footer>
+        </section>
     </main>
 
     <template id="standard-page-template">
