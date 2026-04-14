@@ -630,6 +630,11 @@ function buildPrintableHtml(snapshot = {}) {
             page-break-inside: avoid;
         }
 
+        .flow-unit.flow-unit-code {
+            break-inside: auto;
+            page-break-inside: auto;
+        }
+
         .flow-unit + .flow-unit {
             margin-top: 2mm;
         }
@@ -669,11 +674,15 @@ function buildPrintableHtml(snapshot = {}) {
         .document-content pre {
             padding: 14px 16px;
             border: 1px solid #e4e7ec;
-            border-radius: 14px;
-            background: #f7f7f8;
+            border-radius: 12px;
+            background: linear-gradient(180deg, #eef2f7 0%, #f7f7f8 14px, #f7f7f8 calc(100% - 14px), #eef2f7 100%);
             white-space: pre-wrap;
             word-break: break-word;
-            overflow: hidden;
+            overflow: visible;
+            break-inside: auto;
+            page-break-inside: auto;
+            box-decoration-break: clone;
+            -webkit-box-decoration-break: clone;
         }
 
         .document-content code {
@@ -902,10 +911,15 @@ function buildPrintableHtml(snapshot = {}) {
                     const nextNode = nodes[index + 1];
                     const isHeading = /^H[2-6]$/.test(currentTag);
                     const nextIsHeading = nextNode ? /^H[1-6]$/.test(nextNode.tagName || "") : false;
+                    const nextIsCodeBlock = nextNode instanceof HTMLElement && nextNode.matches("pre.code-block");
 
-                    if (isHeading && nextNode && !nextIsHeading) {
+                    if (isHeading && nextNode && !nextIsHeading && !nextIsCodeBlock) {
                         unit.append(nextNode);
                         index += 1;
+                    }
+
+                    if (currentNode instanceof HTMLElement && currentNode.matches("pre.code-block")) {
+                        unit.classList.add("flow-unit-code");
                     }
 
                     units.push(unit);
@@ -925,14 +939,6 @@ function buildPrintableHtml(snapshot = {}) {
                 mountNode.append(currentPage);
 
                 for (const unit of units) {
-                    const isCodeBlockUnit = Boolean(unit.querySelector("pre.code-block"));
-
-                    if (isCodeBlockUnit && currentBody.children.length) {
-                        currentPage = createStandardPage();
-                        currentBody = currentPage.querySelector(".page-body");
-                        mountNode.append(currentPage);
-                    }
-
                     currentBody.append(unit);
 
                     if (currentBody.scrollHeight > currentBody.clientHeight + 2 && currentBody.children.length > 1) {
