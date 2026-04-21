@@ -546,6 +546,19 @@ body[data-mode="edit"] .editor-panel {
 .preview ul,
 .preview ol {
     padding-left: 1.25rem;
+    margin: 0.4rem 0 0.95rem;
+}
+
+.preview li > ul,
+.preview li > ol {
+    margin: 0.45rem 0 0.2rem;
+    padding-left: 1.35rem;
+}
+
+.preview li > ul,
+.preview li > ol,
+.preview .md-sublist {
+    list-style-position: outside;
 }
 
 .preview blockquote {

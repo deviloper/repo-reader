@@ -411,8 +411,8 @@ function renderMarkdown(markdown) {
     const lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
     const blocks = [];
     let paragraph = [];
-    let listType = null;
-    let listItems = [];
+    let listRoots = [];
+    let listStack = [];
     let inCodeBlock = false;
     let codeLines = [];
     let sectionDepth = 0;
@@ -431,17 +431,86 @@ function renderMarkdown(markdown) {
         paragraph = [];
     }
 
+    function getIndentWidth(value) {
+        return String(value || "").replace(/\t/g, "    ").length;
+    }
+
+    function createListNode(type, indent) {
+        return {
+            type,
+            indent,
+            items: [],
+        };
+    }
+
+    function renderListNode(node, isNested = false) {
+        const className = isNested ? "md-sublist" : `md-block md-list${blockClass(sectionDepth)}`;
+        const itemsHtml = node.items.map(item => {
+            const childrenHtml = item.children.map(child => renderListNode(child, true)).join("");
+            return `<li>${renderInline(item.content)}${childrenHtml}</li>`;
+        }).join("");
+
+        return `<${node.type} class="${className}">${itemsHtml}</${node.type}>`;
+    }
+
+    function addListItem(type, indent, content) {
+        while (listStack.length && indent < listStack[listStack.length - 1].indent) {
+            listStack.pop();
+        }
+
+        while (listStack.length && indent === listStack[listStack.length - 1].indent && listStack[listStack.length - 1].type !== type) {
+            listStack.pop();
+        }
+
+        let currentList = listStack[listStack.length - 1] || null;
+
+        if (!currentList) {
+            currentList = createListNode(type, indent);
+            listRoots.push(currentList);
+            listStack.push(currentList);
+        } else if (indent > currentList.indent) {
+            const nestedList = createListNode(type, indent);
+
+            if (currentList.items.length) {
+                currentList.items[currentList.items.length - 1].children.push(nestedList);
+            } else {
+                listRoots.push(nestedList);
+            }
+
+            listStack.push(nestedList);
+            currentList = nestedList;
+        } else if (indent === currentList.indent && currentList.type !== type) {
+            currentList = createListNode(type, indent);
+
+            if (listStack.length) {
+                const parentList = listStack[listStack.length - 1];
+
+                if (parentList && parentList.items.length && indent > parentList.indent) {
+                    parentList.items[parentList.items.length - 1].children.push(currentList);
+                } else {
+                    listRoots.push(currentList);
+                }
+            } else {
+                listRoots.push(currentList);
+            }
+
+            listStack.push(currentList);
+        }
+
+        currentList.items.push({
+            content,
+            children: [],
+        });
+    }
+
     function flushList() {
-        if (!listType) {
+        if (!listRoots.length) {
             return;
         }
 
-        const tagName = listType === "ol" ? "ol" : "ul";
-        const itemsHtml = listItems.map(item => `<li>${renderInline(item)}</li>`).join("");
-
-        blocks.push(`<${tagName} class="md-block${blockClass(sectionDepth)}">${itemsHtml}</${tagName}>`);
-        listType = null;
-        listItems = [];
+        blocks.push(listRoots.map(node => renderListNode(node)).join(""));
+        listRoots = [];
+        listStack = [];
     }
 
     for (const rawLine of lines) {
@@ -490,27 +559,17 @@ function renderMarkdown(markdown) {
             continue;
         }
 
-        const unorderedList = /^\s*[-*+]\s+(.+)$/.exec(rawLine);
+        const unorderedList = /^(\s*)[-*+]\s+(.+)$/.exec(rawLine);
         if (unorderedList) {
             flushParagraph();
-            if (listType && listType !== "ul") {
-                flushList();
-            }
-
-            listType = "ul";
-            listItems.push(unorderedList[1]);
+            addListItem("ul", getIndentWidth(unorderedList[1]), unorderedList[2]);
             continue;
         }
 
-        const orderedList = /^\s*\d+\.\s+(.+)$/.exec(rawLine);
+        const orderedList = /^(\s*)\d+\.\s+(.+)$/.exec(rawLine);
         if (orderedList) {
             flushParagraph();
-            if (listType && listType !== "ol") {
-                flushList();
-            }
-
-            listType = "ol";
-            listItems.push(orderedList[1]);
+            addListItem("ol", getIndentWidth(orderedList[1]), orderedList[2]);
             continue;
         }
 

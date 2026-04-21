@@ -702,6 +702,14 @@ function buildPrintableHtml(snapshot = {}) {
         .document-content ul,
         .document-content ol {
             padding-left: 22px;
+            margin: 0 0 4mm;
+        }
+
+        .document-content li > ul,
+        .document-content li > ol {
+            margin-top: 2mm;
+            margin-bottom: 1mm;
+            padding-left: 20px;
         }
 
         .document-content li {
