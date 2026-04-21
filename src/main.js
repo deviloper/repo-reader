@@ -554,6 +554,15 @@ function buildPrintableHtml(snapshot = {}) {
             gap: 3.2mm;
         }
 
+        .toc-page.is-continuation .toc-title {
+            margin-bottom: 4mm;
+            font-size: 18pt;
+        }
+
+        .toc-page.is-continuation .toc-subtitle {
+            margin-bottom: 6mm;
+        }
+
         .export-summary {
             display: grid;
             gap: 7mm;
@@ -600,7 +609,7 @@ function buildPrintableHtml(snapshot = {}) {
 
         .toc-row {
             display: grid;
-            grid-template-columns: auto auto minmax(0, 1fr) auto;
+            grid-template-columns: auto auto minmax(0, 1fr) 12mm;
             gap: 3mm;
             align-items: baseline;
             font-size: 11pt;
@@ -703,6 +712,22 @@ function buildPrintableHtml(snapshot = {}) {
         .document-content ol {
             padding-left: 22px;
             margin: 0 0 4mm;
+        }
+
+        .document-content ul ul {
+            list-style-type: circle;
+        }
+
+        .document-content ul ul ul {
+            list-style-type: square;
+        }
+
+        .document-content ol ol {
+            list-style-type: lower-alpha;
+        }
+
+        .document-content ol ol ol {
+            list-style-type: lower-roman;
         }
 
         .document-content li > ul,
@@ -848,23 +873,7 @@ function buildPrintableHtml(snapshot = {}) {
             </div>
         </section>
 
-        <section class="print-page standard-page toc-page">
-            ${watermarkMarkup}
-            <header class="page-header">
-                <div class="header-title">${title}</div>
-                <div class="header-note">${presetLabel}</div>
-            </header>
-            <div class="page-body">
-                <h2 class="toc-title">Indice</h2>
-                <p class="toc-subtitle">Sezioni numerate del documento, livelli da H2 a H4.</p>
-                <div id="toc-body" class="toc-list"></div>
-            </div>
-            <footer class="page-footer">
-                <div class="footer-item">Autore: ${authorName || "Non indicato"}</div>
-                <div class="footer-item is-center">Data esportazione: ${generatedAt}</div>
-                <div class="footer-item is-right">Pagina <span data-page-current></span> / <span data-page-total></span></div>
-            </footer>
-        </section>
+        <section id="toc-pages"></section>
 
         <section id="content-pages"></section>
 
@@ -918,24 +927,65 @@ function buildPrintableHtml(snapshot = {}) {
         </section>
     </template>
 
+    <template id="toc-page-template">
+        <section class="print-page standard-page toc-page">
+            ${watermarkMarkup}
+            <header class="page-header">
+                <div class="header-title">${title}</div>
+                <div class="header-note">${presetLabel}</div>
+            </header>
+            <div class="page-body">
+                <h2 class="toc-title" data-toc-title>Indice</h2>
+                <p class="toc-subtitle" data-toc-subtitle>Sezioni numerate del documento, livelli da H2 a H4.</p>
+                <div class="toc-list" data-toc-body></div>
+            </div>
+            <footer class="page-footer">
+                <div class="footer-item">Autore: ${authorName || "Non indicato"}</div>
+                <div class="footer-item is-center">Data esportazione: ${generatedAt}</div>
+                <div class="footer-item is-right">Pagina <span data-page-current></span> / <span data-page-total></span></div>
+            </footer>
+        </section>
+    </template>
+
     <template id="content-template">${contentHtml}</template>
 
     <script>
         (() => {
             const contentTemplate = document.getElementById("content-template");
             const contentPages = document.getElementById("content-pages");
-            const tocBody = document.getElementById("toc-body");
-            const sourceContainer = document.createElement("div");
+            const tocPages = document.getElementById("toc-pages");
 
-            sourceContainer.append(contentTemplate.content.cloneNode(true));
-            removePrimaryHeading(sourceContainer);
-
-            const tocEntries = numberDocumentHeadings(sourceContainer);
-            const units = createFlowUnits(sourceContainer);
-            const pageMap = paginateUnits(units, contentPages);
-
-            renderToc(tocEntries, pageMap, tocBody);
+            layoutDocument();
             updatePageNumbers();
+
+            function layoutDocument() {
+                let tocPageCount = 1;
+
+                for (let pass = 0; pass < 3; pass += 1) {
+                    const sourceContainer = createSourceContainer();
+                    const tocEntries = numberDocumentHeadings(sourceContainer);
+
+                    contentPages.innerHTML = "";
+                    tocPages.innerHTML = "";
+
+                    const units = createFlowUnits(sourceContainer);
+                    const pageMap = paginateUnits(units, contentPages, 1 + tocPageCount);
+                    const actualTocPageCount = paginateTocEntries(tocEntries, pageMap, tocPages);
+
+                    if (actualTocPageCount === tocPageCount) {
+                        return;
+                    }
+
+                    tocPageCount = actualTocPageCount;
+                }
+            }
+
+            function createSourceContainer() {
+                const container = document.createElement("div");
+                container.append(contentTemplate.content.cloneNode(true));
+                removePrimaryHeading(container);
+                return container;
+            }
 
             function removePrimaryHeading(container) {
                 const firstElement = Array.from(container.children).find(node => node.textContent.trim());
@@ -1045,7 +1095,21 @@ function buildPrintableHtml(snapshot = {}) {
                 return document.getElementById("standard-page-template").content.firstElementChild.cloneNode(true);
             }
 
-            function paginateUnits(units, mountNode) {
+            function createTocPage(isContinuation) {
+                const page = document.getElementById("toc-page-template").content.firstElementChild.cloneNode(true);
+                const titleNode = page.querySelector("[data-toc-title]");
+                const subtitleNode = page.querySelector("[data-toc-subtitle]");
+
+                if (isContinuation) {
+                    page.classList.add("is-continuation");
+                    titleNode.textContent = "Indice (continua)";
+                    subtitleNode.textContent = "Prosecuzione della tabella dei contenuti del documento.";
+                }
+
+                return page;
+            }
+
+            function paginateUnits(units, mountNode, leadingPageCount) {
                 const pageLookup = new Map();
                 let currentPage = createStandardPage();
                 let currentBody = currentPage.querySelector(".page-body");
@@ -1062,7 +1126,7 @@ function buildPrintableHtml(snapshot = {}) {
                         currentBody.append(unit);
                     }
 
-                    const pageNumber = 2 + mountNode.children.length;
+                    const pageNumber = leadingPageCount + mountNode.children.length;
                     unit.querySelectorAll("[data-heading-id]").forEach(heading => {
                         pageLookup.set(heading.dataset.headingId, pageNumber);
                     });
@@ -1071,44 +1135,64 @@ function buildPrintableHtml(snapshot = {}) {
                 return pageLookup;
             }
 
-            function renderToc(entries, pageLookup, mountNode) {
-                mountNode.innerHTML = "";
+            function createTocRow(entry, pageLookup) {
+                const row = document.createElement("div");
+                row.className = "toc-row";
+                row.dataset.level = String(entry.level);
 
+                const number = document.createElement("span");
+                number.className = "toc-number";
+                number.textContent = entry.number;
+
+                const label = document.createElement("span");
+                label.className = "toc-label";
+                label.textContent = entry.text;
+
+                const leader = document.createElement("span");
+                leader.className = "toc-leader";
+
+                const page = document.createElement("span");
+                page.className = "toc-page";
+                page.textContent = String(pageLookup.get(entry.id) || "-");
+
+                row.append(number, label, leader, page);
+                return row;
+            }
+
+            function paginateTocEntries(entries, pageLookup, mountNode) {
                 if (!entries.length) {
+                    const page = createTocPage(false);
                     const emptyState = document.createElement("p");
                     emptyState.className = "print-empty";
                     emptyState.textContent = "Nessuna sezione H2-H4 disponibile per l'indice.";
-                    mountNode.append(emptyState);
-                    return;
+                    page.querySelector("[data-toc-body]").append(emptyState);
+                    mountNode.append(page);
+                    return 1;
                 }
 
-                const fragment = document.createDocumentFragment();
+                let pageCount = 0;
+                let currentPage = createTocPage(false);
+                let currentBody = currentPage.querySelector(".page-body");
+                let currentList = currentPage.querySelector("[data-toc-body]");
+                mountNode.append(currentPage);
+                pageCount += 1;
 
                 for (const entry of entries) {
-                    const row = document.createElement("div");
-                    row.className = "toc-row";
-                    row.dataset.level = String(entry.level);
+                    const row = createTocRow(entry, pageLookup);
+                    currentList.append(row);
 
-                    const number = document.createElement("span");
-                    number.className = "toc-number";
-                    number.textContent = entry.number;
-
-                    const label = document.createElement("span");
-                    label.className = "toc-label";
-                    label.textContent = entry.text;
-
-                    const leader = document.createElement("span");
-                    leader.className = "toc-leader";
-
-                    const page = document.createElement("span");
-                    page.className = "toc-page";
-                    page.textContent = String(pageLookup.get(entry.id) || "-");
-
-                    row.append(number, label, leader, page);
-                    fragment.append(row);
+                    if (currentBody.scrollHeight > currentBody.clientHeight + 2 && currentList.children.length > 1) {
+                        currentList.removeChild(row);
+                        currentPage = createTocPage(true);
+                        currentBody = currentPage.querySelector(".page-body");
+                        currentList = currentPage.querySelector("[data-toc-body]");
+                        currentList.append(row);
+                        mountNode.append(currentPage);
+                        pageCount += 1;
+                    }
                 }
 
-                mountNode.append(fragment);
+                return pageCount;
             }
 
             function updatePageNumbers() {

@@ -561,6 +561,22 @@ body[data-mode="edit"] .editor-panel {
     list-style-position: outside;
 }
 
+.preview ul ul {
+    list-style-type: circle;
+}
+
+.preview ul ul ul {
+    list-style-type: square;
+}
+
+.preview ol ol {
+    list-style-type: lower-alpha;
+}
+
+.preview ol ol ol {
+    list-style-type: lower-roman;
+}
+
 .preview blockquote {
     margin-left: 0;
     padding: 0.85rem 1rem;
