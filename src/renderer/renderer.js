@@ -515,7 +515,30 @@ function renderMarkdown(markdown) {
 
     function splitTableRow(rawRow) {
         const normalizedRow = String(rawRow || "").trim().replace(/^\|/, "").replace(/\|$/, "");
-        return normalizedRow.split("|").map(cell => cell.trim());
+        const cells = [];
+        let currentCell = "";
+
+        for (let index = 0; index < normalizedRow.length; index += 1) {
+            const currentChar = normalizedRow[index];
+            const nextChar = normalizedRow[index + 1];
+
+            if (currentChar === "\\" && nextChar === "|") {
+                currentCell += "|";
+                index += 1;
+                continue;
+            }
+
+            if (currentChar === "|") {
+                cells.push(currentCell.trim());
+                currentCell = "";
+                continue;
+            }
+
+            currentCell += currentChar;
+        }
+
+        cells.push(currentCell.trim());
+        return cells.map(cell => cell.replace(/\\\\/g, "\\"));
     }
 
     function isTableSeparator(rawLine) {
