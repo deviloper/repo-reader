@@ -790,6 +790,45 @@ function buildPrintableHtml(snapshot = {}) {
             padding-bottom: 10px;
         }
 
+        .document-content .md-table-wrap {
+            margin: 0 0 4mm;
+            overflow: hidden;
+            border: 1px solid #d0d5dd;
+            border-radius: 12px;
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
+        .document-content .md-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .document-content .md-table th,
+        .document-content .md-table td {
+            padding: 9px 10px;
+            border-bottom: 1px solid #e4e7ec;
+            font-size: 10pt;
+            color: #2b3444;
+            vertical-align: top;
+            overflow-wrap: anywhere;
+        }
+
+        .document-content .md-table th {
+            font-weight: 700;
+            color: #111827;
+            background: #f5f7fa;
+        }
+
+        .document-content .md-table tbody tr:nth-child(even) td {
+            background: #fafbfc;
+        }
+
+        .document-content .md-table tbody tr:last-child td {
+            border-bottom: 0;
+        }
+
         .document-content code {
             font-family: "Cascadia Mono", "Consolas", monospace;
             font-size: 0.95em;
