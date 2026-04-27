@@ -994,6 +994,15 @@ async function applyWorkspaceState(workspaceState, statusMessage) {
     elements.rootPath.textContent = workspaceState.root;
 
     await loadDirectory(workspaceState.defaultPath || "");
+
+    if (workspaceState.initialSelection) {
+        if (workspaceState.initialSelectionType === "file") {
+            await openFile(workspaceState.initialSelection);
+        } else if (workspaceState.initialSelectionType === "dir") {
+            await openDirectory(workspaceState.initialSelection);
+        }
+    }
+
     updateSelectionHeader();
     syncEditorSurface();
     setStatus(statusMessage || "Workspace aggiornato.");
@@ -1063,13 +1072,35 @@ async function requestWorkspaceSwitch(loader) {
 
 function getDroppedDirectoryPath(event) {
     const files = Array.from(event.dataTransfer?.files || []);
-    const candidate = files[0];
 
-    if (!candidate) {
-        return "";
+    for (const file of files) {
+        const resolvedPath = String(window.repoReader.getDroppedPath(file) || "").trim();
+
+        if (resolvedPath) {
+            return resolvedPath;
+        }
     }
 
-    return String(candidate.path || "").trim();
+    const items = Array.from(event.dataTransfer?.items || []);
+
+    for (const item of items) {
+        if (typeof item.getAsFile !== "function") {
+            continue;
+        }
+
+        const file = item.getAsFile();
+        const resolvedPath = String(window.repoReader.getDroppedPath(file) || "").trim();
+
+        if (resolvedPath) {
+            return resolvedPath;
+        }
+    }
+
+    return "";
+}
+
+function hasFileSystemDrag(event) {
+    return Boolean(event.dataTransfer?.files?.length || event.dataTransfer?.items?.length);
 }
 
 async function openWorkspaceFromDrop(event) {
@@ -1914,8 +1945,27 @@ function bindEvents() {
     });
 
     if (elements.workspace) {
+        document.addEventListener("dragenter", event => {
+            if (!hasFileSystemDrag(event)) {
+                return;
+            }
+
+            event.preventDefault();
+            document.body.dataset.dropTarget = "workspace";
+        });
+
+        document.addEventListener("dragover", event => {
+            if (!hasFileSystemDrag(event)) {
+                return;
+            }
+
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "copy";
+            document.body.dataset.dropTarget = "workspace";
+        });
+
         elements.workspace.addEventListener("dragenter", event => {
-            if (!event.dataTransfer?.files?.length) {
+            if (!hasFileSystemDrag(event)) {
                 return;
             }
 
@@ -1924,7 +1974,7 @@ function bindEvents() {
         });
 
         elements.workspace.addEventListener("dragover", event => {
-            if (!event.dataTransfer?.files?.length) {
+            if (!hasFileSystemDrag(event)) {
                 return;
             }
 
@@ -1934,7 +1984,7 @@ function bindEvents() {
         });
 
         elements.workspace.addEventListener("dragleave", event => {
-            if (event.target === elements.workspace) {
+            if (event.target === elements.workspace || !elements.workspace.contains(event.relatedTarget)) {
                 delete document.body.dataset.dropTarget;
             }
         });
@@ -1947,7 +1997,7 @@ function bindEvents() {
     }
 
     document.addEventListener("drop", event => {
-        if (!event.dataTransfer?.files?.length) {
+        if (!hasFileSystemDrag(event)) {
             return;
         }
 

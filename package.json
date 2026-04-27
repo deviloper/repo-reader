@@ -45,7 +45,6 @@
   },
   "dependencies": {
     "electron": "^35.1.4",
-    "electron-squirrel-startup": "^1.0.1",
     "monaco-editor": "^0.53.0"
   },
   "devDependencies": {

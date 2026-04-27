@@ -159,6 +159,14 @@ Per correggere questo comportamento sono stati aggiunti:
 
 Questo e' il passaggio che permette a Squirrel di completare correttamente la creazione e l'aggiornamento degli shortcut, incluso quello del menu Start.
 
+In aggiunta, durante installazione e aggiornamento vengono registrate voci di menu contestuale in Windows per:
+
+1. cartelle;
+2. file `.md`;
+3. file `.mdx`.
+
+Queste voci permettono di aprire rapidamente il percorso selezionato in Repo Reader senza passare dalla finestra di selezione workspace.
+
 ### 2. Pacchetto npm come strumento di sviluppo
 
 Resta invariata la modalita' di utilizzo come tool installabile nelle `devDependencies` di un altro progetto.

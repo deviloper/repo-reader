@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
 contextBridge.exposeInMainWorld("repoReader", {
     getBootstrapState: () => ipcRenderer.invoke("repo:get-bootstrap"),
@@ -12,4 +12,15 @@ contextBridge.exposeInMainWorld("repoReader", {
     chooseWorkspace: () => ipcRenderer.invoke("repo:choose-workspace"),
     openWorkspacePath: absolutePath => ipcRenderer.invoke("repo:open-workspace-path", absolutePath),
     confirmWorkspaceSwitch: relativeFilePath => ipcRenderer.invoke("repo:confirm-workspace-switch", relativeFilePath),
+    getDroppedPath: file => {
+        if (!file) {
+            return "";
+        }
+
+        try {
+            return String(webUtils.getPathForFile(file) || "");
+        } catch {
+            return String(file.path || "");
+        }
+    },
 });

@@ -1,15 +1,123 @@
 const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
 const fs = require("fs");
 const path = require("path");
-const { spawn } = require("child_process");
-
-if (require("electron-squirrel-startup")) {
-    app.quit();
-}
+const { spawn, spawnSync } = require("child_process");
 
 let currentRoot = path.resolve(process.env.REPO_READER_ROOT || process.cwd());
+let startupWorkspaceState = null;
 
 const APP_ICON_PATH = path.join(__dirname, "renderer", process.platform === "win32" ? "favicon.ico" : "favicon.png");
+
+function runWindowsUtility(command, args) {
+    const result = spawnSync(command, args, {
+        windowsHide: true,
+        stdio: "ignore",
+    });
+
+    if (result.error) {
+        throw result.error;
+    }
+
+    if (typeof result.status === "number" && result.status !== 0) {
+        throw new Error(`${command} exited with code ${result.status}`);
+    }
+}
+
+function getWindowsShellEntries() {
+    const commandValue = `"${process.execPath}" "%1"`;
+    const label = "Open with Repo Reader";
+
+    return [
+        {
+            key: "HKCU\\Software\\Classes\\Directory\\shell\\RepoReader",
+            label,
+            command: commandValue,
+        },
+        {
+            key: "HKCU\\Software\\Classes\\SystemFileAssociations\\.md\\shell\\RepoReader",
+            label,
+            command: commandValue,
+        },
+        {
+            key: "HKCU\\Software\\Classes\\SystemFileAssociations\\.mdx\\shell\\RepoReader",
+            label,
+            command: commandValue,
+        },
+    ];
+}
+
+function registerWindowsShellEntries() {
+    if (process.platform !== "win32") {
+        return;
+    }
+
+    for (const entry of getWindowsShellEntries()) {
+        runWindowsUtility("reg", ["add", entry.key, "/ve", "/d", entry.label, "/f"]);
+        runWindowsUtility("reg", ["add", entry.key, "/v", "Icon", "/d", process.execPath, "/f"]);
+        runWindowsUtility("reg", ["add", `${entry.key}\\command`, "/ve", "/d", entry.command, "/f"]);
+    }
+}
+
+function unregisterWindowsShellEntries() {
+    if (process.platform !== "win32") {
+        return;
+    }
+
+    for (const entry of getWindowsShellEntries()) {
+        spawnSync("reg", ["delete", entry.key, "/f"], {
+            windowsHide: true,
+            stdio: "ignore",
+        });
+    }
+}
+
+function handleSquirrelEvent() {
+    if (process.platform !== "win32" || process.argv.length < 2) {
+        return false;
+    }
+
+    const squirrelEvent = process.argv[1];
+
+    if (!squirrelEvent.startsWith("--squirrel-")) {
+        return false;
+    }
+
+    const updateExe = path.resolve(path.dirname(process.execPath), "..", "Update.exe");
+    const exeName = path.basename(process.execPath);
+
+    const createShortcuts = () => runWindowsUtility(updateExe, ["--createShortcut", exeName]);
+    const removeShortcuts = () => runWindowsUtility(updateExe, ["--removeShortcut", exeName]);
+
+    try {
+        if (squirrelEvent === "--squirrel-install" || squirrelEvent === "--squirrel-updated") {
+            createShortcuts();
+            registerWindowsShellEntries();
+            setTimeout(() => app.quit(), 1000);
+            return true;
+        }
+
+        if (squirrelEvent === "--squirrel-uninstall") {
+            unregisterWindowsShellEntries();
+            removeShortcuts();
+            setTimeout(() => app.quit(), 1000);
+            return true;
+        }
+
+        if (squirrelEvent === "--squirrel-obsolete") {
+            app.quit();
+            return true;
+        }
+    } catch {
+        app.quit();
+        return true;
+    }
+
+    return false;
+}
+
+if (handleSquirrelEvent()) {
+    return;
+}
 
 function getRoot() {
     return currentRoot;
@@ -17,6 +125,19 @@ function getRoot() {
 
 function getDefaultPath() {
     return fs.existsSync(path.join(getRoot(), "docs")) ? "docs" : "";
+}
+
+function getWorkspaceState(root, options = {}) {
+    const resolvedRoot = resolveWorkspaceRoot(root);
+    currentRoot = resolvedRoot;
+
+    return {
+        canceled: false,
+        root: currentRoot,
+        defaultPath: typeof options.defaultPath === "string" ? options.defaultPath : getDefaultPath(),
+        initialSelection: options.initialSelection || "",
+        initialSelectionType: options.initialSelectionType || "",
+    };
 }
 
 function resolveWorkspaceRoot(inputPath) {
@@ -36,13 +157,76 @@ function resolveWorkspaceRoot(inputPath) {
 }
 
 function setWorkspaceRoot(nextRoot) {
-    currentRoot = resolveWorkspaceRoot(nextRoot);
+    return getWorkspaceState(nextRoot);
+}
 
-    return {
-        canceled: false,
-        root: currentRoot,
-        defaultPath: getDefaultPath(),
-    };
+function findWorkspaceRootForPath(targetPath) {
+    let currentPath = fs.statSync(targetPath).isDirectory() ? targetPath : path.dirname(targetPath);
+
+    while (true) {
+        if (fs.existsSync(path.join(currentPath, ".git")) || fs.existsSync(path.join(currentPath, "package.json"))) {
+            return currentPath;
+        }
+
+        const parentPath = path.dirname(currentPath);
+
+        if (parentPath === currentPath) {
+            return fs.statSync(targetPath).isDirectory() ? targetPath : path.dirname(targetPath);
+        }
+
+        currentPath = parentPath;
+    }
+}
+
+function openWorkspaceTarget(absolutePath) {
+    const resolvedTarget = path.resolve(String(absolutePath || "").trim() || ".");
+
+    if (!fs.existsSync(resolvedTarget)) {
+        throw new Error("Il percorso selezionato non esiste");
+    }
+
+    const stats = fs.statSync(resolvedTarget);
+
+    if (stats.isDirectory()) {
+        return getWorkspaceState(resolvedTarget, { defaultPath: "" });
+    }
+
+    const workspaceRoot = findWorkspaceRootForPath(resolvedTarget);
+    const relativeFilePath = toPosixPath(path.relative(workspaceRoot, resolvedTarget));
+    const relativeDirectoryPath = toPosixPath(path.dirname(relativeFilePath));
+
+    return getWorkspaceState(workspaceRoot, {
+        defaultPath: relativeDirectoryPath === "." ? "" : relativeDirectoryPath,
+        initialSelection: relativeFilePath,
+        initialSelectionType: "file",
+    });
+}
+
+function extractStartupTarget(argv = process.argv.slice(1)) {
+    const ignoredValues = new Set([
+        ".",
+        path.resolve(__dirname, ".."),
+        path.resolve(__filename),
+        path.resolve(path.join(__dirname, "main.js")),
+    ]);
+
+    for (const argument of argv) {
+        if (!argument || argument.startsWith("--")) {
+            continue;
+        }
+
+        const resolvedArgument = path.resolve(argument);
+
+        if (ignoredValues.has(resolvedArgument)) {
+            continue;
+        }
+
+        if (fs.existsSync(resolvedArgument)) {
+            return resolvedArgument;
+        }
+    }
+
+    return "";
 }
 
 function toPosixPath(value) {
@@ -1562,14 +1746,24 @@ function createWindow() {
     return window;
 }
 
+const startupTarget = !process.env.REPO_READER_ROOT ? extractStartupTarget() : "";
+
+if (startupTarget) {
+    startupWorkspaceState = openWorkspaceTarget(startupTarget);
+}
+
 app.whenReady().then(() => {
     if (process.platform === "win32") {
         app.setAppUserModelId("com.github.deviloper.repo-reader");
     }
 
     ipcMain.handle("repo:get-bootstrap", () => ({
-        root: getRoot(),
-        defaultPath: getDefaultPath(),
+        ...(startupWorkspaceState || {
+            root: getRoot(),
+            defaultPath: getDefaultPath(),
+            initialSelection: "",
+            initialSelectionType: "",
+        }),
     }));
 
     ipcMain.handle("repo:list-directory", (_, relativePath = "") => listDirectory(relativePath));
@@ -1596,7 +1790,7 @@ app.whenReady().then(() => {
     ipcMain.handle("repo:open-external", (_, url) => openExternalUrl(url));
     ipcMain.handle("repo:print-document", async (_, snapshot, options = {}) => printDocument(snapshot, options));
     ipcMain.handle("repo:choose-workspace", event => chooseWorkspace(BrowserWindow.fromWebContents(event.sender)));
-    ipcMain.handle("repo:open-workspace-path", (_, absolutePath) => setWorkspaceRoot(absolutePath));
+    ipcMain.handle("repo:open-workspace-path", (_, absolutePath) => openWorkspaceTarget(absolutePath));
     ipcMain.handle("repo:confirm-workspace-switch", (event, relativeFilePath = "") => {
         return confirmWorkspaceSwitch(BrowserWindow.fromWebContents(event.sender), relativeFilePath);
     });
