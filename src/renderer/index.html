@@ -23,10 +23,16 @@
         </header>
 
         <div class="contextbar">
-            <button type="button" id="parent-folder-button" class="path-button" aria-label="Vai alla cartella superiore">↖</button>
+            <button type="button" id="parent-folder-button" class="path-button icon-action" aria-label="Vai alla cartella superiore" title="Vai alla cartella superiore">
+                <span class="icon-parent-folder" aria-hidden="true"></span>
+                <span class="visually-hidden">Cartella superiore</span>
+            </button>
             <div id="breadcrumbs" class="breadcrumbs topbar-pathbar"></div>
             <p id="root-path" class="subtle contextbar-path"></p>
-            <button type="button" id="choose-workspace" class="workspace-action">Change</button>
+            <button type="button" id="choose-workspace" class="workspace-action icon-action" aria-label="Cambia workspace" title="Cambia workspace">
+                <span class="icon-workspace" aria-hidden="true"></span>
+                <span class="visually-hidden">Cambia workspace</span>
+            </button>
         </div>
 
         <main class="workspace">
@@ -49,7 +55,10 @@
                     </div>
                     <div class="sidebar-tools">
                         <input id="search-input" type="search" placeholder="Filtra cartella o file...">
-                        <button type="button" id="clear-filter">Pulisci</button>
+                        <button type="button" id="clear-filter" class="icon-action" aria-label="Pulisci filtro" title="Pulisci filtro">
+                            <span class="icon-clear-filter" aria-hidden="true"></span>
+                            <span class="visually-hidden">Pulisci filtro</span>
+                        </button>
                     </div>
                     <div id="file-list" class="file-list"></div>
                 </div>
@@ -68,8 +77,9 @@
                         <p id="selected-file-heading" class="document-heading">Nessun file selezionato (anteprima)</p>
                         <p id="selected-file" class="subtle subtle-inline"></p>
                     </div>
-                    <button type="button" id="mode-toggle" class="mode-switch" aria-pressed="false" aria-label="Attiva modalità modifica" title="Attiva modalità modifica">
-                        <span class="mode-switch-icon" aria-hidden="true">✎</span>
+                    <button type="button" id="mode-toggle" class="mode-switch icon-action" aria-pressed="false" aria-label="Attiva modalità modifica" title="Attiva modalità modifica">
+                        <span class="mode-switch-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Modalità modifica</span>
                     </button>
                     <div class="toolbar workbench-toolbar">
                         <span id="selected-type" class="badge">none</span>
@@ -78,7 +88,10 @@
                             <span class="visually-hidden">Salva</span>
                         </button>
                         <div class="overflow-actions" id="overflow-actions">
-                            <button type="button" id="overflow-button" aria-haspopup="menu" aria-expanded="false">...</button>
+                            <button type="button" id="overflow-button" class="icon-action" aria-haspopup="menu" aria-expanded="false" aria-label="Azioni documento" title="Azioni documento">
+                                <span class="icon-overflow" aria-hidden="true"></span>
+                                <span class="visually-hidden">Azioni documento</span>
+                            </button>
                             <div id="overflow-menu" class="action-menu" hidden>
                                 <button type="button" data-overflow-action="refresh">Aggiorna contenuto</button>
                                 <button type="button" data-overflow-action="open-folder">Apri cartella di sistema</button>
