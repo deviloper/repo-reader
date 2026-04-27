@@ -124,6 +124,7 @@ const state = {
     dirty: false,
     mode: "view",
     sidebarCollapsed: false,
+    activeSidebarPanel: "explorer",
     printPreset: "public",
     printProfile: {
         authorName: "",
@@ -138,23 +139,31 @@ const state = {
     editorCreatePromise: null,
     themeDefined: false,
     suppressEditorEvent: false,
+    documentOutline: [],
+    activeHeadingId: "",
 };
 
 const elements = {
     rootPath: document.getElementById("root-path"),
+    chooseWorkspace: document.getElementById("choose-workspace"),
     parentFolderButton: document.getElementById("parent-folder-button"),
     breadcrumbs: document.getElementById("breadcrumbs"),
     fileList: document.getElementById("file-list"),
     entryCount: document.getElementById("entry-count"),
     preview: document.getElementById("preview"),
+    selectedFileHeading: document.getElementById("selected-file-heading"),
     selectedFile: document.getElementById("selected-file"),
     selectedType: document.getElementById("selected-type"),
     sidebar: document.getElementById("sidebar"),
     sidebarToggle: document.getElementById("sidebar-toggle"),
+    tocToggle: document.getElementById("toc-toggle"),
+    explorerPanel: document.getElementById("explorer-panel"),
+    tocPanel: document.getElementById("toc-panel"),
+    tocList: document.getElementById("toc-list"),
+    tocCount: document.getElementById("toc-count"),
     searchInput: document.getElementById("search-input"),
     clearFilter: document.getElementById("clear-filter"),
-    modeView: document.querySelector('[data-mode="view"]'),
-    modeEdit: document.querySelector('[data-mode="edit"]'),
+    modeToggle: document.getElementById("mode-toggle"),
     editorHost: document.getElementById("editor-host"),
     editorFallback: document.getElementById("editor"),
     overflowActions: document.getElementById("overflow-actions"),
@@ -407,9 +416,21 @@ function renderInline(text) {
     return html;
 }
 
-function renderMarkdown(markdown) {
+function slugifyHeadingId(text, index) {
+    const base = String(text || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "") || `section-${index + 1}`;
+
+    return `heading-${base}-${index + 1}`;
+}
+
+function renderMarkdownDocument(markdown) {
     const lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
     const blocks = [];
+    const headings = [];
     let paragraph = [];
     let listRoots = [];
     let listStack = [];
@@ -643,8 +664,17 @@ function renderMarkdown(markdown) {
             flushParagraph();
             flushList();
             const level = heading[1].length;
+            const headingText = heading[2].trim();
+            const headingId = slugifyHeadingId(headingText, headings.length);
+
             sectionDepth = level;
-            blocks.push(`<h${level}>${renderInline(heading[2].trim())}</h${level}>`);
+            headings.push({
+                id: headingId,
+                level,
+                text: headingText,
+                line: index + 1,
+            });
+            blocks.push(`<h${level} id="${headingId}" class="preview-heading-anchor">${renderInline(headingText)}</h${level}>`);
             continue;
         }
 
@@ -717,7 +747,14 @@ function renderMarkdown(markdown) {
         blocks.push(`<pre class="code-block md-block${blockClass(sectionDepth)}"><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
     }
 
-    return blocks.length ? blocks.join("\n") : '<p class="empty-markdown">Nessun contenuto.</p>';
+    return {
+        html: blocks.length ? blocks.join("\n") : '<p class="empty-markdown">Nessun contenuto.</p>',
+        headings,
+    };
+}
+
+function renderMarkdown(markdown) {
+    return renderMarkdownDocument(markdown).html;
 }
 
 function renderPlainPreview(content) {
@@ -804,11 +841,14 @@ function setStatus(message, tone = "") {
 function updateModeButtons() {
     const isViewMode = state.mode === "view";
 
-    elements.modeView.classList.toggle("is-active", isViewMode);
-    elements.modeEdit.classList.toggle("is-active", !isViewMode);
-    elements.modeView.setAttribute("aria-pressed", String(isViewMode));
-    elements.modeEdit.setAttribute("aria-pressed", String(!isViewMode));
+    if (elements.modeToggle) {
+        elements.modeToggle.setAttribute("aria-pressed", String(!isViewMode));
+        elements.modeToggle.setAttribute("aria-label", isViewMode ? "Attiva modalità modifica" : "Torna alla modalità anteprima");
+        elements.modeToggle.setAttribute("title", isViewMode ? "Attiva modalità modifica" : "Torna alla modalità anteprima");
+    }
+
     document.body.dataset.mode = state.mode;
+    updateSelectionHeader();
 }
 
 function updateEntryCount() {
@@ -824,12 +864,16 @@ function updateEntryCount() {
 }
 
 function updateSelectionHeader() {
+    const modeLabel = state.mode === "edit" ? "editing" : "anteprima";
+
     if (!state.selectedPath) {
+        elements.selectedFileHeading.textContent = `Nessun file selezionato (${modeLabel})`;
         elements.selectedFile.textContent = "Nessun file selezionato";
-        elements.selectedType.textContent = "";
+        elements.selectedType.textContent = "none";
         return;
     }
 
+    elements.selectedFileHeading.textContent = `${getBaseName(state.selectedPath)} (${modeLabel})`;
     elements.selectedFile.textContent = state.selectedPath;
     elements.selectedType.textContent = getFileTypeLabel(state.selectedPath, state.selectedType);
 }
@@ -897,9 +941,18 @@ function setSidebarCollapsed(collapsed) {
     document.body.dataset.sidebar = state.sidebarCollapsed ? "collapsed" : "open";
 
     if (elements.sidebarToggle) {
-        elements.sidebarToggle.setAttribute("aria-pressed", String(!state.sidebarCollapsed));
-        elements.sidebarToggle.textContent = state.sidebarCollapsed ? "Mostra indice" : "Nascondi indice";
+        const sidebarLabel = state.sidebarCollapsed ? "Apri pannello explorer" : "Pannello explorer";
+        elements.sidebarToggle.setAttribute("aria-label", sidebarLabel);
+        elements.sidebarToggle.setAttribute("title", sidebarLabel);
     }
+
+    if (elements.tocToggle) {
+        const tocLabel = state.sidebarCollapsed ? "Apri indice" : "Pannello indice";
+        elements.tocToggle.setAttribute("aria-label", tocLabel);
+        elements.tocToggle.setAttribute("title", tocLabel);
+    }
+
+    setActiveSidebarPanel(state.activeSidebarPanel);
 
     if (state.editor && state.mode === "edit") {
         state.editor.layout();
@@ -1107,18 +1160,150 @@ function renderFileList() {
     elements.fileList.replaceChildren(fragment);
 }
 
+function renderDocumentOutline() {
+    if (!elements.tocList || !elements.tocCount) {
+        return;
+    }
+
+    elements.tocCount.textContent = state.documentOutline.length ? `${state.documentOutline.length}` : "";
+
+    if (!state.documentOutline.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty-state sidebar-empty";
+        empty.textContent = MARKDOWN_EXTENSIONS.has(state.selectedExtension)
+            ? "Nessun titolo disponibile nel file corrente."
+            : "Indice disponibile solo per i file Markdown.";
+        elements.tocList.replaceChildren(empty);
+        return;
+    }
+
+    const fragment = document.createDocumentFragment();
+
+    for (const item of state.documentOutline) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `toc-entry${item.id === state.activeHeadingId ? " is-active" : ""}`;
+        button.dataset.headingId = item.id;
+        button.dataset.line = String(item.line);
+        button.dataset.level = String(item.level);
+
+        const content = document.createElement("span");
+        content.className = "toc-entry-content";
+
+        const title = document.createElement("span");
+        title.className = "toc-entry-title";
+        title.textContent = item.text;
+
+        const meta = document.createElement("span");
+        meta.className = "toc-entry-meta";
+        meta.textContent = `H${item.level} · riga ${item.line}`;
+
+        content.append(title, meta);
+        button.append(content);
+        fragment.append(button);
+    }
+
+    elements.tocList.replaceChildren(fragment);
+}
+
+function setActiveSidebarPanel(panelId) {
+    state.activeSidebarPanel = panelId === "toc" ? "toc" : "explorer";
+    document.body.dataset.sidebarPanel = state.activeSidebarPanel;
+
+    if (elements.explorerPanel) {
+        elements.explorerPanel.hidden = state.activeSidebarPanel !== "explorer";
+    }
+
+    if (elements.tocPanel) {
+        elements.tocPanel.hidden = state.activeSidebarPanel !== "toc";
+    }
+
+    if (elements.sidebarToggle) {
+        const isExplorerActive = !state.sidebarCollapsed && state.activeSidebarPanel === "explorer";
+        elements.sidebarToggle.classList.toggle("is-active", isExplorerActive);
+        elements.sidebarToggle.setAttribute("aria-pressed", String(isExplorerActive));
+    }
+
+    if (elements.tocToggle) {
+        const isTocActive = !state.sidebarCollapsed && state.activeSidebarPanel === "toc";
+        elements.tocToggle.classList.toggle("is-active", isTocActive);
+        elements.tocToggle.setAttribute("aria-pressed", String(isTocActive));
+    }
+}
+
+function openSidebarPanel(panelId) {
+    state.sidebarCollapsed = false;
+    document.body.dataset.sidebar = "open";
+    setActiveSidebarPanel(panelId);
+
+    if (state.editor && state.mode === "edit") {
+        state.editor.layout();
+    }
+}
+
+function navigateToHeading(headingId, lineNumber) {
+    if (!headingId) {
+        return;
+    }
+
+    state.activeHeadingId = headingId;
+    renderDocumentOutline();
+
+    const previewHeading = elements.preview.querySelector(`#${CSS.escape(headingId)}`);
+    if (previewHeading instanceof HTMLElement) {
+        previewHeading.scrollIntoView({ block: "start", behavior: "smooth" });
+    }
+
+    const editorLine = Math.max(1, Number(lineNumber) || 1);
+
+    if (state.editorKind === "monaco" && state.editor) {
+        state.editor.revealLineInCenter(editorLine);
+        state.editor.setPosition({ lineNumber: editorLine, column: 1 });
+        state.editor.focus();
+        return;
+    }
+
+    const content = getPreviewContent();
+    const lines = String(content || "").replace(/\r\n/g, "\n").split("\n");
+    const safeLine = Math.max(1, Math.min(editorLine, lines.length));
+    let offset = 0;
+
+    for (let index = 0; index < safeLine - 1; index += 1) {
+        offset += lines[index].length + 1;
+    }
+
+    elements.editorFallback.focus();
+    elements.editorFallback.setSelectionRange(offset, offset);
+
+    const lineHeight = parseFloat(window.getComputedStyle(elements.editorFallback).lineHeight) || 20;
+    elements.editorFallback.scrollTop = Math.max(0, (safeLine - 2) * lineHeight);
+}
+
 function renderPreview() {
+    state.documentOutline = [];
+    state.activeHeadingId = "";
+
     if (!state.selectedPath) {
         elements.preview.innerHTML = '<p class="empty-state">Seleziona un file per aprire l’anteprima oppure passa alla modalità modifica.</p>';
+        renderDocumentOutline();
         return;
     }
 
     if (state.selectedType === "dir") {
         elements.preview.innerHTML = '<p class="empty-state">Cartella selezionata. Usa il pannello a sinistra per aprire una sottocartella o un file.</p>';
+        renderDocumentOutline();
         return;
     }
 
-    elements.preview.innerHTML = renderFilePreview(getPreviewContent(), state.selectedPath);
+    if (MARKDOWN_EXTENSIONS.has(state.selectedExtension)) {
+        const rendered = renderMarkdownDocument(getPreviewContent());
+        elements.preview.innerHTML = rendered.html;
+        state.documentOutline = rendered.headings;
+    } else {
+        elements.preview.innerHTML = renderFilePreview(getPreviewContent(), state.selectedPath);
+    }
+
+    renderDocumentOutline();
 }
 
 function updateEditorSurfaceVisibility() {
@@ -1185,6 +1370,8 @@ function clearSelection() {
     state.draftContent = "";
     state.editable = false;
     state.dirty = false;
+    state.documentOutline = [];
+    state.activeHeadingId = "";
 
     updateSelectionHeader();
     renderFileList();
@@ -1580,17 +1767,38 @@ function bindEvents() {
         elements.searchInput.focus();
     });
 
-    elements.modeView.addEventListener("click", () => {
-        setMode("view").catch(error => setStatus(error.message, "error"));
-    });
-
-    elements.modeEdit.addEventListener("click", () => {
-        setMode("edit").catch(error => setStatus(error.message, "error"));
-    });
+    if (elements.modeToggle) {
+        elements.modeToggle.addEventListener("click", () => {
+            const nextMode = state.mode === "view" ? "edit" : "view";
+            setMode(nextMode).catch(error => setStatus(error.message, "error"));
+        });
+    }
 
     elements.sidebarToggle.addEventListener("click", () => {
-        setSidebarCollapsed(!state.sidebarCollapsed);
+        if (state.sidebarCollapsed || state.activeSidebarPanel !== "explorer") {
+            openSidebarPanel("explorer");
+            return;
+        }
+
+        setSidebarCollapsed(true);
     });
+
+    if (elements.tocToggle) {
+        elements.tocToggle.addEventListener("click", () => {
+            if (state.sidebarCollapsed || state.activeSidebarPanel !== "toc") {
+                openSidebarPanel("toc");
+                return;
+            }
+
+            setSidebarCollapsed(true);
+        });
+    }
+
+    if (elements.chooseWorkspace) {
+        elements.chooseWorkspace.addEventListener("click", () => {
+            chooseWorkspace().catch(error => setStatus(error.message, "error"));
+        });
+    }
 
     elements.printDialogPreset.addEventListener("change", () => {
         state.printPreset = elements.printDialogPreset.value;
@@ -1619,6 +1827,18 @@ function bindEvents() {
         saveCurrentFile().catch(error => setStatus(error.message, "error"));
     });
 
+    if (elements.tocList) {
+        elements.tocList.addEventListener("click", event => {
+            const target = event.target.closest("[data-heading-id]");
+
+            if (!target) {
+                return;
+            }
+
+            navigateToHeading(target.dataset.headingId || "", Number(target.dataset.line || "1"));
+        });
+    }
+
     elements.editorFallback.addEventListener("input", () => {
         if (state.editorKind === "monaco" && state.editor) {
             return;
@@ -1640,11 +1860,6 @@ function bindEvents() {
         button.addEventListener("click", async () => {
             const action = button.dataset.overflowAction;
             closeOverflowMenu();
-
-            if (action === "choose-workspace") {
-                await chooseWorkspace();
-                return;
-            }
 
             if (action === "refresh") {
                 await loadDirectory(state.currentPath);
@@ -1716,6 +1931,7 @@ async function bootstrap() {
     elements.editorHost.hidden = true;
     elements.editorFallback.hidden = false;
     bindEvents();
+    setActiveSidebarPanel("explorer");
 
     const bootstrapState = await window.repoReader.getBootstrapState();
     await applyWorkspaceState(bootstrapState, "Pronto.");

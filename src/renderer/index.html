@@ -20,73 +20,79 @@
                     </div>
                 </div>
             </div>
-
-            <div class="toolbar">
-                <div class="mode-toggle" role="group" aria-label="Modalità di lavoro">
-                    <button type="button" data-mode="view" class="mode-button is-active">Visualizza</button>
-                    <button type="button" data-mode="edit" class="mode-button">Modifica</button>
-                </div>
-                <div class="toolbar-actions">
-                    <button type="button" id="sidebar-toggle" class="secondary-toggle" aria-pressed="true">Nascondi indice</button>
-                    <div class="overflow-actions" id="overflow-actions">
-                        <button type="button" id="overflow-button" aria-haspopup="menu" aria-expanded="false">Azioni</button>
-                        <div id="overflow-menu" class="action-menu" hidden>
-                            <button type="button" data-overflow-action="choose-workspace">Cambia workspace</button>
-                            <button type="button" data-overflow-action="refresh">Aggiorna contenuto</button>
-                            <button type="button" data-overflow-action="open-folder">Apri cartella di sistema</button>
-                            <button type="button" data-overflow-action="open-code">Apri in VS Code</button>
-                            <div class="action-menu-divider"></div>
-                            <button type="button" data-print-mode="print">Stampa documento</button>
-                            <button type="button" data-print-mode="pdf">Esporta PDF</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </header>
 
         <div class="contextbar">
-            <div class="topbar-pathbar">
-                <button type="button" id="parent-folder-button" class="path-button" aria-label="Vai alla cartella superiore">↖</button>
-                <div id="breadcrumbs" class="breadcrumbs"></div>
-            </div>
-            <p id="root-path" class="subtle subtle-path"></p>
+            <button type="button" id="parent-folder-button" class="path-button" aria-label="Vai alla cartella superiore">↖</button>
+            <div id="breadcrumbs" class="breadcrumbs topbar-pathbar"></div>
+            <p id="root-path" class="subtle contextbar-path"></p>
+            <button type="button" id="choose-workspace" class="workspace-action">Change</button>
         </div>
 
         <main class="workspace">
+            <aside class="activity-rail" aria-label="Selettore pannelli laterali">
+                <div class="activity-group" role="group" aria-label="Pannelli laterali">
+                    <button type="button" id="sidebar-toggle" class="activity-button is-active" aria-pressed="true" aria-label="Mostra o nascondi explorer" title="Mostra o nascondi explorer" data-activity-kind="documents">
+                        <span class="activity-button-text" data-sidebar-label>Explorer</span>
+                        </button>
+                        <button type="button" id="toc-toggle" class="activity-button" aria-pressed="false" aria-label="Pannello indice" title="Pannello indice" data-activity-kind="toc">
+                            <span class="activity-button-text">Indice</span>
+                        </button>
+                </div>
+            </aside>
+
             <aside class="sidebar panel" id="sidebar">
-                <div class="panel-head panel-head-compact">
-                    <span>Explorer</span>
-                    <span id="entry-count" class="badge"></span>
+                <div id="explorer-panel" class="sidebar-panel is-active">
+                    <div class="panel-head panel-head-compact">
+                        <span>Explorer</span>
+                        <span id="entry-count" class="badge"></span>
+                    </div>
+                    <div class="sidebar-tools">
+                        <input id="search-input" type="search" placeholder="Filtra cartella o file...">
+                        <button type="button" id="clear-filter">Pulisci</button>
+                    </div>
+                    <div id="file-list" class="file-list"></div>
                 </div>
-                <div class="sidebar-tools">
-                    <input id="search-input" type="search" placeholder="Filtra cartella o file...">
-                    <button type="button" id="clear-filter">Pulisci</button>
-                </div>
-                <div id="file-list" class="file-list"></div>
+                    <div id="toc-panel" class="sidebar-panel" hidden>
+                        <div class="panel-head panel-head-compact">
+                            <span>Indice</span>
+                            <span id="toc-count" class="badge"></span>
+                        </div>
+                        <div id="toc-list" class="toc-list-sidebar"></div>
+                    </div>
             </aside>
 
             <section class="content">
-                <article class="panel preview-panel workbench-panel">
-                    <div class="panel-head panel-head-compact">
-                        <div class="panel-title-group">
-                            <span>Anteprima</span>
-                            <p id="selected-file" class="subtle subtle-inline"></p>
-                        </div>
-                        <span id="selected-type" class="badge"></span>
+                <div class="workbench-header panel-head panel-head-compact">
+                    <div class="panel-title-group document-header-group">
+                        <p id="selected-file-heading" class="document-heading">Nessun file selezionato (anteprima)</p>
+                        <p id="selected-file" class="subtle subtle-inline"></p>
                     </div>
-                    <div id="preview" class="preview"></div>
-                </article>
+                    <button type="button" id="mode-toggle" class="mode-switch" aria-pressed="false" aria-label="Attiva modalità modifica" title="Attiva modalità modifica">
+                        <span class="mode-switch-icon" aria-hidden="true">✎</span>
+                    </button>
+                    <div class="toolbar workbench-toolbar">
+                        <span id="selected-type" class="badge">none</span>
+                        <button type="button" id="save-file" class="primary-action icon-action" aria-label="Salva file" title="Salva file" disabled>
+                            <span class="icon-save" aria-hidden="true"></span>
+                            <span class="visually-hidden">Salva</span>
+                        </button>
+                        <div class="overflow-actions" id="overflow-actions">
+                            <button type="button" id="overflow-button" aria-haspopup="menu" aria-expanded="false">...</button>
+                            <div id="overflow-menu" class="action-menu" hidden>
+                                <button type="button" data-overflow-action="refresh">Aggiorna contenuto</button>
+                                <button type="button" data-overflow-action="open-folder">Apri cartella di sistema</button>
+                                <button type="button" data-overflow-action="open-code">Apri in VS Code</button>
+                                <div class="action-menu-divider"></div>
+                                <button type="button" data-print-mode="print">Stampa documento</button>
+                                <button type="button" data-print-mode="pdf">Esporta PDF</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-                <article class="panel editor-panel workbench-panel">
-                    <div class="panel-head panel-head-compact">
-                        <div class="panel-title-group">
-                            <span>Editor</span>
-                            <p class="subtle subtle-inline">Modalità focalizzata sul contenuto.</p>
-                        </div>
-                        <div class="toolbar compact">
-                            <button type="button" id="save-file" disabled>Salva</button>
-                        </div>
-                    </div>
+                <article class="panel document-panel workbench-panel">
+                    <div id="preview" class="preview"></div>
                     <div class="editor-stage">
                         <div id="editor-host" class="editor-host" hidden></div>
                         <textarea id="editor" class="editor-fallback" spellcheck="false" placeholder="Seleziona un file modificabile..."></textarea>
