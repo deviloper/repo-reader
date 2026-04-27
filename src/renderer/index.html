@@ -9,20 +9,16 @@
     <link rel="icon" href="./favicon.png" type="image/png">
 </head>
 <body>
-    <div class="background-orb orb-one"></div>
-    <div class="background-orb orb-two"></div>
-
     <div class="app-shell">
         <header class="topbar">
             <div class="topbar-heading">
-                <div class="brand-row">
+                <div class="brand-row compact-brand">
                     <img class="app-mark" src="./favicon.png" alt="" aria-hidden="true">
-                    <div>
+                    <div class="brand-copy">
                         <p class="eyebrow">Repo Reader</p>
-                        <h1>Navigazione repository e documentazione</h1>
+                        <h1>Explorer documentazione</h1>
                     </div>
                 </div>
-                <p id="root-path" class="subtle"></p>
             </div>
 
             <div class="toolbar">
@@ -46,17 +42,20 @@
                     </div>
                 </div>
             </div>
+        </header>
 
+        <div class="contextbar">
             <div class="topbar-pathbar">
                 <button type="button" id="parent-folder-button" class="path-button" aria-label="Vai alla cartella superiore">↖</button>
                 <div id="breadcrumbs" class="breadcrumbs"></div>
             </div>
-        </header>
+            <p id="root-path" class="subtle subtle-path"></p>
+        </div>
 
         <main class="workspace">
             <aside class="sidebar panel" id="sidebar">
-                <div class="panel-head">
-                    <span>Struttura</span>
+                <div class="panel-head panel-head-compact">
+                    <span>Explorer</span>
                     <span id="entry-count" class="badge"></span>
                 </div>
                 <div class="sidebar-tools">
@@ -67,22 +66,22 @@
             </aside>
 
             <section class="content">
-                <article class="panel preview-panel">
-                    <div class="panel-head">
-                        <div>
+                <article class="panel preview-panel workbench-panel">
+                    <div class="panel-head panel-head-compact">
+                        <div class="panel-title-group">
                             <span>Anteprima</span>
-                            <p id="selected-file" class="subtle"></p>
+                            <p id="selected-file" class="subtle subtle-inline"></p>
                         </div>
                         <span id="selected-type" class="badge"></span>
                     </div>
                     <div id="preview" class="preview"></div>
                 </article>
 
-                <article class="panel editor-panel">
-                    <div class="panel-head">
-                        <div>
-                            <span>Editor guidato</span>
-                            <p class="subtle">La modifica si apre solo nella modalità dedicata, per usare tutta la finestra.</p>
+                <article class="panel editor-panel workbench-panel">
+                    <div class="panel-head panel-head-compact">
+                        <div class="panel-title-group">
+                            <span>Editor</span>
+                            <p class="subtle subtle-inline">Modalità focalizzata sul contenuto.</p>
                         </div>
                         <div class="toolbar compact">
                             <button type="button" id="save-file" disabled>Salva</button>
@@ -92,12 +91,18 @@
                         <div id="editor-host" class="editor-host" hidden></div>
                         <textarea id="editor" class="editor-fallback" spellcheck="false" placeholder="Seleziona un file modificabile..."></textarea>
                     </div>
-                    <div class="status-row">
-                        <span id="status">Pronto.</span>
-                    </div>
                 </article>
             </section>
         </main>
+
+        <footer class="statusbar">
+            <div class="statusbar-section">
+                <span id="status">Pronto.</span>
+            </div>
+            <div class="statusbar-section statusbar-meta">
+                <span>Preview ed editor condividono lo stesso contenuto attivo.</span>
+            </div>
+        </footer>
     </div>
 
     <div id="print-dialog" class="modal-shell" hidden>
