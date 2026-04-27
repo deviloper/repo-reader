@@ -3,9 +3,13 @@ const fs = require("fs");
 const path = require("path");
 const { spawn } = require("child_process");
 
+if (require("electron-squirrel-startup")) {
+    app.quit();
+}
+
 let currentRoot = path.resolve(process.env.REPO_READER_ROOT || process.cwd());
 
-const APP_ICON_PATH = path.join(__dirname, "renderer", "favicon.png");
+const APP_ICON_PATH = path.join(__dirname, "renderer", process.platform === "win32" ? "favicon.ico" : "favicon.png");
 
 function getRoot() {
     return currentRoot;

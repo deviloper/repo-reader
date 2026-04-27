@@ -313,11 +313,62 @@ button:disabled {
 }
 
 .workspace {
+    position: relative;
     display: flex;
     align-items: stretch;
     min-height: 0;
     flex: 1;
     overflow: hidden;
+}
+
+.workspace-drop-overlay {
+    position: absolute;
+    inset: 10px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 120;
+    pointer-events: none;
+    border: 1px dashed rgba(20, 144, 223, 0.6);
+    border-radius: 12px;
+    background: rgba(5, 11, 22, 0.78);
+    backdrop-filter: blur(4px);
+}
+
+body[data-drop-target="workspace"] .workspace-drop-overlay {
+    display: flex;
+}
+
+.workspace-drop-card {
+    width: min(420px, calc(100% - 48px));
+    padding: 24px 28px;
+    border: 1px solid rgba(20, 144, 223, 0.35);
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(12, 26, 46, 0.96), rgba(8, 18, 32, 0.96));
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.28);
+    text-align: center;
+}
+
+.workspace-drop-eyebrow {
+    margin: 0 0 8px;
+    color: var(--accent-strong);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.workspace-drop-card h2 {
+    margin: 0;
+    color: #ffffff;
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.workspace-drop-card p {
+    margin: 10px 0 0;
+    color: var(--muted);
+    line-height: 1.5;
 }
 
 body[data-sidebar="collapsed"] .workspace {

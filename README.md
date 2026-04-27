@@ -144,7 +144,20 @@ Comportamento applicativo previsto in modalita' desktop:
 
 1. l'utente puo' trascinare una cartella sull'area di lavoro per aprirla come workspace;
 2. se esistono modifiche non salvate, l'app chiede se salvare, proseguire senza salvare o annullare il cambio workspace;
-3. l'app puo' essere usata anche senza avere il repository di sviluppo del progetto aperto localmente.
+3. durante il drag-and-drop compare un overlay esplicito sull'area di lavoro;
+4. l'app puo' essere usata anche senza avere il repository di sviluppo del progetto aperto localmente.
+
+### Nota su Squirrel e menu Start
+
+Il primo packaging con Squirrel produceva l'installer ma non creava correttamente la voce nel menu Start. La causa non era Forge in se', ma l'assenza della gestione degli eventi Squirrel all'avvio dell'app.
+
+Per correggere questo comportamento sono stati aggiunti:
+
+1. `electron-squirrel-startup` nel runtime dell'app;
+2. la chiusura immediata dell'app quando viene lanciata con gli switch di installazione/aggiornamento/rimozione di Squirrel;
+3. una configurazione esplicita di `shortcutName` e dell'icona `.ico` nella build Forge.
+
+Questo e' il passaggio che permette a Squirrel di completare correttamente la creazione e l'aggiornamento degli shortcut, incluso quello del menu Start.
 
 ### 2. Pacchetto npm come strumento di sviluppo
 
