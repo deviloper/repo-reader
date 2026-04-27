@@ -15,6 +15,32 @@ function getDefaultPath() {
     return fs.existsSync(path.join(getRoot(), "docs")) ? "docs" : "";
 }
 
+function resolveWorkspaceRoot(inputPath) {
+    const selectedRoot = path.resolve(String(inputPath || "").trim() || ".");
+
+    if (!fs.existsSync(selectedRoot)) {
+        throw new Error("La cartella selezionata non esiste");
+    }
+
+    const stats = fs.statSync(selectedRoot);
+
+    if (!stats.isDirectory()) {
+        throw new Error("Il percorso selezionato non e' una cartella");
+    }
+
+    return selectedRoot;
+}
+
+function setWorkspaceRoot(nextRoot) {
+    currentRoot = resolveWorkspaceRoot(nextRoot);
+
+    return {
+        canceled: false,
+        root: currentRoot,
+        defaultPath: getDefaultPath(),
+    };
+}
+
 function toPosixPath(value) {
     return String(value || "").replace(/\\/g, "/");
 }
@@ -1310,14 +1336,35 @@ async function chooseWorkspace(browserWindow) {
         return { canceled: true, root: getRoot(), defaultPath: getDefaultPath() };
     }
 
-    const selectedRoot = path.resolve(result.filePaths[0]);
-    currentRoot = selectedRoot;
+    return setWorkspaceRoot(result.filePaths[0]);
+}
 
-    return {
-        canceled: false,
-        root: currentRoot,
-        defaultPath: getDefaultPath(),
-    };
+async function confirmWorkspaceSwitch(browserWindow, relativeFilePath = "") {
+    const fileLabel = String(relativeFilePath || "").trim();
+    const detail = fileLabel
+        ? `Il file ${fileLabel} contiene modifiche non salvate.`
+        : "Sono presenti modifiche non salvate.";
+
+    const { response } = await dialog.showMessageBox(browserWindow, {
+        type: "warning",
+        title: "Modifiche non salvate",
+        message: "Prima di cambiare workspace devi decidere come gestire le modifiche correnti.",
+        detail,
+        buttons: ["Salva e continua", "Continua senza salvare", "Annulla"],
+        defaultId: 0,
+        cancelId: 2,
+        noLink: true,
+    });
+
+    if (response === 0) {
+        return "save";
+    }
+
+    if (response === 1) {
+        return "discard";
+    }
+
+    return "cancel";
 }
 
 function getA4PageSizeMicrons() {
@@ -1545,6 +1592,10 @@ app.whenReady().then(() => {
     ipcMain.handle("repo:open-external", (_, url) => openExternalUrl(url));
     ipcMain.handle("repo:print-document", async (_, snapshot, options = {}) => printDocument(snapshot, options));
     ipcMain.handle("repo:choose-workspace", event => chooseWorkspace(BrowserWindow.fromWebContents(event.sender)));
+    ipcMain.handle("repo:open-workspace-path", (_, absolutePath) => setWorkspaceRoot(absolutePath));
+    ipcMain.handle("repo:confirm-workspace-switch", (event, relativeFilePath = "") => {
+        return confirmWorkspaceSwitch(BrowserWindow.fromWebContents(event.sender), relativeFilePath);
+    });
 
     createWindow();
 

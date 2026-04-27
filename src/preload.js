@@ -10,4 +10,6 @@ contextBridge.exposeInMainWorld("repoReader", {
     openExternal: url => ipcRenderer.invoke("repo:open-external", url),
     printDocument: (snapshot, options) => ipcRenderer.invoke("repo:print-document", snapshot, options),
     chooseWorkspace: () => ipcRenderer.invoke("repo:choose-workspace"),
+    openWorkspacePath: absolutePath => ipcRenderer.invoke("repo:open-workspace-path", absolutePath),
+    confirmWorkspaceSwitch: relativeFilePath => ipcRenderer.invoke("repo:confirm-workspace-switch", relativeFilePath),
 });

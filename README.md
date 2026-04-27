@@ -122,6 +122,46 @@ La base iniziale ora include:
 8. una finestra di stampa/esportazione con frontespizio, indice automatico, numerazione dei paragrafi H2-H4 e intestazione/piè di pagina ripetuti;
 9. watermark di classificazione distribuito su ogni pagina del documento esportato;
 10. una dialog dedicata per i parametri di stampa, con autore e organizzazione gestiti separatamente.
+11. cambio workspace protetto da conferma quando ci sono modifiche non salvate;
+12. apertura di una cartella trascinata sull'area di lavoro come nuovo workspace.
+
+## Modalita' di rilascio
+
+Il progetto mantiene due canali di distribuzione distinti e complementari.
+
+### 1. App desktop Windows installabile
+
+Per la distribuzione come applicazione desktop autonoma e' ora prevista la build con Electron Forge.
+
+Comandi principali:
+
+1. `npm run dev` per l'avvio in sviluppo tramite Forge.
+2. `npm run package` per produrre il pacchetto applicativo non installante.
+3. `npm run make` per generare gli artefatti di distribuzione.
+4. `npm run make:win` per generare in modo esplicito gli artefatti Windows, incluso l'installer Squirrel.
+
+Comportamento applicativo previsto in modalita' desktop:
+
+1. l'utente puo' trascinare una cartella sull'area di lavoro per aprirla come workspace;
+2. se esistono modifiche non salvate, l'app chiede se salvare, proseguire senza salvare o annullare il cambio workspace;
+3. l'app puo' essere usata anche senza avere il repository di sviluppo del progetto aperto localmente.
+
+### 2. Pacchetto npm come strumento di sviluppo
+
+Resta invariata la modalita' di utilizzo come tool installabile nelle `devDependencies` di un altro progetto.
+
+In questo scenario:
+
+1. il pacchetto espone il comando `repo-reader` tramite `bin`;
+2. l'avvio continua a passare da `src/cli.js`;
+3. il workspace iniziale puo' essere dedotto dalla cartella corrente oppure passato con `--root`.
+
+Esempio:
+
+```bash
+npm install --save-dev repo-reader
+npx repo-reader --root .
+```
 
 ## Direzione UI consigliata
 

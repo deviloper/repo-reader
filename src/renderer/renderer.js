@@ -155,6 +155,7 @@ const elements = {
     selectedFile: document.getElementById("selected-file"),
     selectedType: document.getElementById("selected-type"),
     sidebar: document.getElementById("sidebar"),
+    workspace: document.querySelector(".workspace"),
     sidebarToggle: document.getElementById("sidebar-toggle"),
     tocToggle: document.getElementById("toc-toggle"),
     explorerPanel: document.getElementById("explorer-panel"),
@@ -1000,14 +1001,87 @@ async function applyWorkspaceState(workspaceState, statusMessage) {
 
 async function chooseWorkspace() {
     try {
-        const result = await window.repoReader.chooseWorkspace();
+        await requestWorkspaceSwitch(() => window.repoReader.chooseWorkspace());
+    } catch (error) {
+        setStatus(error.message, "error");
+    }
+}
 
-        if (!result || result.canceled) {
-            setStatus("Cambio workspace annullato.");
-            return;
-        }
+async function persistCurrentFile() {
+    if (!state.editable || !state.selectedPath) {
+        throw new Error("Nessun file modificabile selezionato.");
+    }
 
-        await applyWorkspaceState(result, `Workspace attivo: ${result.root}`);
+    const content = readEditorValue();
+    await window.repoReader.writeFile(state.selectedPath, content);
+
+    state.selectedContent = content;
+    state.draftContent = content;
+    state.dirty = false;
+
+    renderPreview();
+    syncEditorSurface();
+}
+
+async function resolvePendingWorkspaceChange() {
+    if (!state.dirty) {
+        return true;
+    }
+
+    const decision = await window.repoReader.confirmWorkspaceSwitch(state.selectedPath || "");
+
+    if (decision === "save") {
+        await saveCurrentFile();
+        return true;
+    }
+
+    if (decision === "discard") {
+        return true;
+    }
+
+    setStatus("Cambio workspace annullato.");
+    return false;
+}
+
+async function requestWorkspaceSwitch(loader) {
+    const canContinue = await resolvePendingWorkspaceChange();
+
+    if (!canContinue) {
+        return false;
+    }
+
+    const result = await loader();
+
+    if (!result || result.canceled) {
+        setStatus("Cambio workspace annullato.");
+        return false;
+    }
+
+    await applyWorkspaceState(result, `Workspace attivo: ${result.root}`);
+    return true;
+}
+
+function getDroppedDirectoryPath(event) {
+    const files = Array.from(event.dataTransfer?.files || []);
+    const candidate = files[0];
+
+    if (!candidate) {
+        return "";
+    }
+
+    return String(candidate.path || "").trim();
+}
+
+async function openWorkspaceFromDrop(event) {
+    const droppedPath = getDroppedDirectoryPath(event);
+
+    if (!droppedPath) {
+        setStatus("Rilascia una cartella valida per aprirla come workspace.", "error");
+        return;
+    }
+
+    try {
+        await requestWorkspaceSwitch(() => window.repoReader.openWorkspacePath(droppedPath));
     } catch (error) {
         setStatus(error.message, "error");
     }
@@ -1673,23 +1747,12 @@ function handlePreviewLinkClick(event) {
 }
 
 async function saveCurrentFile() {
-    if (!state.editable || !state.selectedPath) {
-        return;
-    }
-
     try {
-        const content = readEditorValue();
-        await window.repoReader.writeFile(state.selectedPath, content);
-
-        state.selectedContent = content;
-        state.draftContent = content;
-        state.dirty = false;
-
-        renderPreview();
-        syncEditorSurface();
+        await persistCurrentFile();
         setStatus("File salvato correttamente.");
     } catch (error) {
         setStatus(error.message, "error");
+        throw error;
     }
 }
 
@@ -1848,6 +1911,48 @@ function bindEvents() {
         state.dirty = state.draftContent !== state.selectedContent;
         updateSaveButtonState();
         setStatus(state.dirty ? "Modifiche non salvate." : "Nessuna modifica in sospeso.");
+    });
+
+    if (elements.workspace) {
+        elements.workspace.addEventListener("dragenter", event => {
+            if (!event.dataTransfer?.files?.length) {
+                return;
+            }
+
+            event.preventDefault();
+            document.body.dataset.dropTarget = "workspace";
+        });
+
+        elements.workspace.addEventListener("dragover", event => {
+            if (!event.dataTransfer?.files?.length) {
+                return;
+            }
+
+            event.preventDefault();
+            event.dataTransfer.dropEffect = "copy";
+            document.body.dataset.dropTarget = "workspace";
+        });
+
+        elements.workspace.addEventListener("dragleave", event => {
+            if (event.target === elements.workspace) {
+                delete document.body.dataset.dropTarget;
+            }
+        });
+
+        elements.workspace.addEventListener("drop", event => {
+            event.preventDefault();
+            delete document.body.dataset.dropTarget;
+            openWorkspaceFromDrop(event).catch(error => setStatus(error.message, "error"));
+        });
+    }
+
+    document.addEventListener("drop", event => {
+        if (!event.dataTransfer?.files?.length) {
+            return;
+        }
+
+        event.preventDefault();
+        delete document.body.dataset.dropTarget;
     });
 
     window.addEventListener("beforeunload", () => {
